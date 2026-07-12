@@ -2,7 +2,7 @@
 using RoomBooking.Application.Abstractions;
 using RoomBooking.Domain.Entities;
 
-namespace RoomBooking.Infrastructure
+namespace RoomBooking.Infrastructure.Db
 {
     public class AppDbContext : DbContext, IAppDbContext
     {
@@ -17,13 +17,17 @@ namespace RoomBooking.Infrastructure
                 .HasOne(c => c.User)
                 .WithMany(c => c.Bookings)
                 .HasForeignKey(c => c.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
+                .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<Booking>()
                .HasOne(c => c.Room)
                .WithMany(c => c.Bookings)
                .HasForeignKey(c => c.RoomId)
-               .OnDelete(DeleteBehavior.Cascade);
+               .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.PhoneNumber)
+                .IsUnique();
         }
     }
 }
