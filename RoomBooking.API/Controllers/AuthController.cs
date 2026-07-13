@@ -22,13 +22,13 @@ namespace RoomBooking.API.Controllers
 
             if(result.Succeeded == true)
             {
-                return Ok(new {token = result.Data });
+                return Ok( result.Data);
             }
 
             if (result.ErrorType == ExeptionType.Conflict)
-                return Conflict(new { error = result.ErrorMessage });
+                return Conflict(result.ErrorMessage);
             if (result.ErrorType == ExeptionType.Validation)
-                return BadRequest(new { error = result.ErrorMessage });
+                return BadRequest(result.ErrorMessage);
 
             return BadRequest();
         
@@ -41,17 +41,17 @@ namespace RoomBooking.API.Controllers
 
             if (result.Succeeded == true)
             {
-                return Ok(new { token = result.Data });
+                return Ok(result.Data);
             }
 
             if (result.ErrorType == ExeptionType.NotFound)
-                return NotFound(new { error = result.ErrorMessage });
+                return NotFound(result.ErrorMessage);
 
             if (result.ErrorType == ExeptionType.Forbidden)
-                return StatusCode(423, new { error = result.ErrorMessage });
+                return StatusCode(423, result.ErrorMessage);
 
             if (result.ErrorType == ExeptionType.Unauthorized)
-                return Unauthorized(new { error = result.ErrorMessage });
+                return Unauthorized(result.ErrorMessage);
 
             return BadRequest();
         }

@@ -19,6 +19,10 @@ namespace RoomBooking.Infrastructure.Db
 
             modelBuilder.Ignore<IdentityPasskeyData>();
             modelBuilder.Ignore<IdentityUserPasskey<Guid>>();
+            modelBuilder.Ignore<IdentityUserClaim<Guid>>();
+            modelBuilder.Ignore<IdentityRoleClaim<Guid>>();
+            modelBuilder.Ignore<IdentityUserLogin<Guid>>();
+            modelBuilder.Ignore<IdentityUserToken<Guid>>();
 
             modelBuilder.Entity<Booking>()
                 .HasOne(c => c.User)

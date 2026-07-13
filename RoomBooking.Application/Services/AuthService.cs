@@ -87,7 +87,7 @@ namespace RoomBooking.Application.Services
 
             return Result<string>.Failure(
                string.Join("; ", errorList.Select(e => e.Description)),
-               ExeptionType.IdentityError);
+               ExeptionType.InternalServerError);
         }
         private string GenerateJwtToken(User user)
         {
