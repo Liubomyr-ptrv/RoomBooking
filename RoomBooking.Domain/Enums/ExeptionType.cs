@@ -3,13 +3,12 @@
     public enum ExeptionType
     {
         None,
-        UserNotFound,
-        InvalidEmailOrPassword,
-        UserAlreadyExists,
-        WeakPassword,
-        UserLockedOut,
-        InvalidEmailFormat,
-        IdentityError,
+        NotFound,
+        Validation,
+        Forbidden,
+        Unauthorized,
+        Conflict,
+        InternalServerError,
         Unknown
     }
 }

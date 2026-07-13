@@ -31,16 +31,16 @@ namespace RoomBooking.Application.Services
         {
             var existing = await _userManager.FindByEmailAsync(dto.Email);
             if (existing is null)
-                return Result<string>.Failure($"Користувача з email '{dto.Email}' не знайдено.", ExeptionType.UserNotFound);
+                return Result<string>.Failure($"Користувача з email '{dto.Email}' не знайдено.", ExeptionType.NotFound);
 
             var signInResult = await _signInManager.CheckPasswordSignInAsync(existing, dto.Password, lockoutOnFailure: true);
 
             if (signInResult.IsLockedOut)
-                return Result<string>.Failure("Акаунт тимчасово заблоковано через забагато невдалих спроб.", ExeptionType.UserLockedOut);
+                return Result<string>.Failure("Акаунт тимчасово заблоковано через забагато невдалих спроб.", ExeptionType.Forbidden);
            
 
             if (!signInResult.Succeeded)
-                return Result<string>.Failure("Невірний email або пароль.", ExeptionType.InvalidEmailOrPassword);
+                return Result<string>.Failure("Невірний email або пароль.", ExeptionType.Validation);
          
             var token = GenerateJwtToken(existing);
 
@@ -51,7 +51,7 @@ namespace RoomBooking.Application.Services
         {
             var existing = await _userManager.FindByEmailAsync(dto.Email);
             if (existing is not null)
-                return Result<string>.Failure($"Користувач з email '{dto.Email}' вже існує.",ExeptionType.UserAlreadyExists);
+                return Result<string>.Failure($"Користувач з email '{dto.Email}' вже існує.",ExeptionType.Conflict);
             
             var user = new User
             {
@@ -78,11 +78,11 @@ namespace RoomBooking.Application.Services
             var errorList = errors.ToList();
             if(errorList.Any(c => c.Code.Contains("Password")))
             {
-                return Result<string>.Failure("Пароль не відповідає вимогам безпеки: мінімум 8 символів.", ExeptionType.WeakPassword);
+                return Result<string>.Failure("Пароль не відповідає вимогам безпеки: мінімум 8 символів.", ExeptionType.Validation);
             }
             if (errorList.Any(c => c.Code.Contains("Email")))
             {
-                return Result<string>.Failure("Некоректний формат email.", ExeptionType.InvalidEmailFormat);
+                return Result<string>.Failure("Некоректний формат email.", ExeptionType.Validation);
             }
 
             return Result<string>.Failure(

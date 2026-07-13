@@ -27,9 +27,8 @@ namespace RoomBooking.API.Controllers
 
             return result.ErrorType switch
             {
-                ExeptionType.UserAlreadyExists => Conflict(new { error = result.ErrorMessage }),
-                ExeptionType.WeakPassword => BadRequest(new { error = result.ErrorMessage }),
-                ExeptionType.InvalidEmailFormat => BadRequest(new { error = result.ErrorMessage }),
+                ExeptionType.Conflict => Conflict(new { error = result.ErrorMessage }),
+                ExeptionType.Validation => BadRequest(new { error = result.ErrorMessage }),        
                 _ => BadRequest(new { error = result.ErrorMessage })
             };
         }
@@ -46,9 +45,9 @@ namespace RoomBooking.API.Controllers
 
             return result.ErrorType switch
             {
-                ExeptionType.UserNotFound => NotFound(new { error = result.ErrorMessage }),
-                ExeptionType.UserLockedOut => StatusCode(423, new { error = result.ErrorMessage }), 
-                ExeptionType.InvalidEmailOrPassword => Unauthorized(new { error = result.ErrorMessage }),
+                ExeptionType.NotFound => NotFound(new { error = result.ErrorMessage }),
+                ExeptionType.Forbidden => StatusCode(423, new { error = result.ErrorMessage }), 
+                ExeptionType.Unauthorized => Unauthorized(new { error = result.ErrorMessage }),
                 _ => BadRequest(new { error = result.ErrorMessage  })
             };
         }
