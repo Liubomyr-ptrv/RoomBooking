@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using RoomBooking.Application.Abstractions.Services;
 using RoomBooking.Application.DTOs.Auth;
+using RoomBooking.Domain.Enums;
 
 namespace RoomBooking.API.Controllers
 {
@@ -15,29 +16,41 @@ namespace RoomBooking.API.Controllers
             _authService = authService;
         }
         [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] RegisterDto registerDto)
+        public async Task<IActionResult> Register([FromBody] RegisterModel registerModel)
         {
-            try
+            var result = await _authService.Register(registerModel);
+
+            if(result.Succeeded == true)
             {
-                return Ok(await _authService.Register(registerDto));
+                return Ok(new {token = result.Data });
             }
-            catch (InvalidOperationException ex) 
-            { 
-                return BadRequest(new { message = ex.Message });
-            }
+
+            return result.ErrorType switch
+            {
+                ExeptionType.UserAlreadyExists => Conflict(new { error = result.ErrorMessage }),
+                ExeptionType.WeakPassword => BadRequest(new { error = result.ErrorMessage }),
+                ExeptionType.InvalidEmailFormat => BadRequest(new { error = result.ErrorMessage }),
+                _ => BadRequest(new { error = result.ErrorMessage })
+            };
         }
 
         [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] LoginDto loginDto)
+        public async Task<IActionResult> Login([FromBody] LoginModel loginModel)
         {
-            try
+            var result = await _authService.Login(loginModel);
+
+            if (result.Succeeded == true)
             {
-                return Ok(await _authService.Login(loginDto));
+                return Ok(new { token = result.Data });
             }
-            catch (InvalidOperationException ex)
+
+            return result.ErrorType switch
             {
-                return Unauthorized(new { message = ex.Message });
-            }
+                ExeptionType.UserNotFound => NotFound(new { error = result.ErrorMessage }),
+                ExeptionType.UserLockedOut => StatusCode(423, new { error = result.ErrorMessage }), 
+                ExeptionType.InvalidEmailOrPassword => Unauthorized(new { error = result.ErrorMessage }),
+                _ => BadRequest(new { error = result.ErrorMessage  })
+            };
         }
     }
 }

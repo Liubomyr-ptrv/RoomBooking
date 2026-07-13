@@ -1,14 +1,10 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using RoomBooking.Application.Abstractions.Services;
-using RoomBooking.Infrastructure.Services;
-using RoomBooking.Application.Settings;
-using RoomBooking.Domain.Entities;
-using RoomBooking.Infrastructure.Db;
-using System.Text;
 using Microsoft.OpenApi;
+using RoomBooking.Application.Abstractions.Services;
+using RoomBooking.Application.Services;
+using RoomBooking.Application.Settings;
+using RoomBooking.Infrastructure.Db;
+using RoomBooking.Infrastructure.Extensions;
 
 
 
@@ -37,65 +33,12 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddIdentityCore<User>(options =>
-{
-    options.Password.RequireDigit = true;
-    options.Password.RequiredLength = 8;
-    options.Password.RequireNonAlphanumeric = false;
-    options.User.RequireUniqueEmail = true;
-    options.Password.RequireUppercase = false;
-    options.Password.RequireLowercase = false;   
-    options.Password.RequiredUniqueChars = 1;
-})
-.AddEntityFrameworkStores<AppDbContext>()
-.AddSignInManager()
-.AddDefaultTokenProviders();
+builder.Services.AddIdentityServices();
 
 builder.Services.AddOptions<JwtConfigurationOptions>()
     .BindConfiguration("JwtSettings");
 
-var key = builder.Configuration.GetValue<string>("JwtSettings:Key")
-    ?? throw new InvalidOperationException("JwtSettings:Key не налаштовано");
-var issuer = builder.Configuration.GetValue<string>("JwtSettings:Issuer")
-    ?? throw new InvalidOperationException("JwtSettings:Issuer не налаштовано");
-var audience = builder.Configuration.GetValue<string>("JwtSettings:Audience")
-    ?? throw new InvalidOperationException("JwtSettings:Audience не налаштовано");
-
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-   .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ClockSkew = TimeSpan.Zero,
-            ValidIssuer = issuer,
-            ValidAudience = audience,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key))
-        };
-
-        options.Events = new JwtBearerEvents
-        {
-            OnAuthenticationFailed = context =>
-            {
-                Console.WriteLine($"Authentication failed: {context.Exception.Message}");
-                return Task.CompletedTask;
-            },
-            OnChallenge = context =>
-            {
-                Console.WriteLine($"Token validation failed: {context.AuthenticateFailure?.Message}");
-                return Task.CompletedTask;
-            }
-        };
-    });
-
-
+builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddAuthorization();
 
 builder.Services.AddScoped<IAuthService, AuthService>();

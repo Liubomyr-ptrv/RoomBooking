@@ -2,14 +2,16 @@
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using RoomBooking.Application.Abstractions.Services;
+using RoomBooking.Application.Common;
 using RoomBooking.Application.DTOs.Auth;
 using RoomBooking.Application.Settings;
 using RoomBooking.Domain.Entities;
+using RoomBooking.Domain.Enums;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 
-namespace RoomBooking.Infrastructure.Services
+namespace RoomBooking.Application.Services
 {
     public class AuthService : IAuthService
     {
@@ -25,31 +27,32 @@ namespace RoomBooking.Infrastructure.Services
             _signInManager = signInManager;
             _jwtConfigOptions = jwtConfigOptions;
         }
-        public async Task<string> Login(LoginDto dto)
+        public async Task<Result<string>> Login(LoginModel dto)
         {
             var existing = await _userManager.FindByEmailAsync(dto.Email);
             if (existing is null)
-                throw new InvalidOperationException("Невірний email або пароль.");
+                return Result<string>.Failure($"Користувача з email '{dto.Email}' не знайдено.", ExeptionType.UserNotFound);
 
             var signInResult = await _signInManager.CheckPasswordSignInAsync(existing, dto.Password, lockoutOnFailure: true);
 
             if (signInResult.IsLockedOut)
-                throw new InvalidOperationException("Акаунт тимчасово заблоковано через забагато невдалих спроб.");
+                return Result<string>.Failure("Акаунт тимчасово заблоковано через забагато невдалих спроб.", ExeptionType.UserLockedOut);
+           
 
             if (!signInResult.Succeeded)
-                throw new InvalidOperationException("Невірний email або пароль.");
-
+                return Result<string>.Failure("Невірний email або пароль.", ExeptionType.InvalidEmailOrPassword);
+         
             var token = GenerateJwtToken(existing);
 
-            return token;
+            return Result<string>.Success(token);
         }
 
-        public async Task<string> Register(RegisterDto dto)
+        public async Task<Result<string>> Register(RegisterModel dto)
         {
             var existing = await _userManager.FindByEmailAsync(dto.Email);
             if (existing is not null)
-                throw new InvalidOperationException($"Користувач з email '{dto.Email}' вже існує");
-
+                return Result<string>.Failure($"Користувач з email '{dto.Email}' вже існує.",ExeptionType.UserAlreadyExists);
+            
             var user = new User
             {
                 Id = Guid.NewGuid(),
@@ -64,9 +67,27 @@ namespace RoomBooking.Infrastructure.Services
 
             var identityResult = await _userManager.CreateAsync(user, dto.Password);
             if (!identityResult.Succeeded)
-                throw new InvalidOperationException(string.Join("; ", identityResult.Errors.Select(e => e.Description)));
+                return IdentityErrors(identityResult.Errors);
 
-            return GenerateJwtToken(user);
+            var token = GenerateJwtToken(user);
+
+            return Result<string>.Success(token);
+        }
+        private Result<string> IdentityErrors(IEnumerable<IdentityError> errors)
+        {
+            var errorList = errors.ToList();
+            if(errorList.Any(c => c.Code.Contains("Password")))
+            {
+                return Result<string>.Failure("Пароль не відповідає вимогам безпеки: мінімум 8 символів.", ExeptionType.WeakPassword);
+            }
+            if (errorList.Any(c => c.Code.Contains("Email")))
+            {
+                return Result<string>.Failure("Некоректний формат email.", ExeptionType.InvalidEmailFormat);
+            }
+
+            return Result<string>.Failure(
+               string.Join("; ", errorList.Select(e => e.Description)),
+               ExeptionType.IdentityError);
         }
         private string GenerateJwtToken(User user)
         {
