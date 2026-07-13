@@ -25,12 +25,13 @@ namespace RoomBooking.API.Controllers
                 return Ok(new {token = result.Data });
             }
 
-            return result.ErrorType switch
-            {
-                ExeptionType.Conflict => Conflict(new { error = result.ErrorMessage }),
-                ExeptionType.Validation => BadRequest(new { error = result.ErrorMessage }),        
-                _ => BadRequest(new { error = result.ErrorMessage })
-            };
+            if (result.ErrorType == ExeptionType.Conflict)
+                return Conflict(new { error = result.ErrorMessage });
+            if (result.ErrorType == ExeptionType.Validation)
+                return BadRequest(new { error = result.ErrorMessage });
+
+            return BadRequest();
+        
         }
 
         [HttpPost("login")]
@@ -43,13 +44,16 @@ namespace RoomBooking.API.Controllers
                 return Ok(new { token = result.Data });
             }
 
-            return result.ErrorType switch
-            {
-                ExeptionType.NotFound => NotFound(new { error = result.ErrorMessage }),
-                ExeptionType.Forbidden => StatusCode(423, new { error = result.ErrorMessage }), 
-                ExeptionType.Unauthorized => Unauthorized(new { error = result.ErrorMessage }),
-                _ => BadRequest(new { error = result.ErrorMessage  })
-            };
+            if (result.ErrorType == ExeptionType.NotFound)
+                return NotFound(new { error = result.ErrorMessage });
+
+            if (result.ErrorType == ExeptionType.Forbidden)
+                return StatusCode(423, new { error = result.ErrorMessage });
+
+            if (result.ErrorType == ExeptionType.Unauthorized)
+                return Unauthorized(new { error = result.ErrorMessage });
+
+            return BadRequest();
         }
     }
 }
