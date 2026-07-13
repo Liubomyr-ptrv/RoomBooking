@@ -83,6 +83,7 @@ using (var scope = app.Services.CreateScope())
             if (result.Succeeded)
             {
                 await userManager.AddToRoleAsync(adminUser, nameof(UserRole.Admin));
+                await userManager.AddToRoleAsync(adminUser, nameof(UserRole.Client));
             }
         }
     }

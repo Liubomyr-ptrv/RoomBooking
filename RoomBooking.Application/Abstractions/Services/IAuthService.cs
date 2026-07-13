@@ -5,7 +5,9 @@ namespace RoomBooking.Application.Abstractions.Services
 {
     public interface IAuthService
     {
-        public Task<Result<string>> Register(RegisterModel dto);
-        public Task<Result<string>> Login(LoginModel dto);
+        public Task<Result<string>> Register(RegisterModel model);
+        public Task<Result<string>> Login(LoginModel model);
+        public Task<Result<bool>> AssignRole(AssignRoleModel model);
+        public Task<Result<bool>> RemoveRole(AssignRoleModel model);
     }
 }

@@ -47,25 +47,25 @@ namespace RoomBooking.Application.Services
             return Result<string>.Success(token);
         }
 
-        public async Task<Result<string>> Register(RegisterModel dto)
+        public async Task<Result<string>> Register(RegisterModel model)
         {
-            var existing = await _userManager.FindByEmailAsync(dto.Email);
+            var existing = await _userManager.FindByEmailAsync(model.Email);
             if (existing is not null)
-                return Result<string>.Failure($"Користувач з email '{dto.Email}' вже існує.", ExeptionType.Conflict);
+                return Result<string>.Failure($"Користувач з email '{model.Email}' вже існує.", ExeptionType.Conflict);
 
             var user = new User
             {
                 Id = Guid.NewGuid(),
-                UserName = dto.Email,
-                Email = dto.Email,
-                PhoneNumber = dto.PhoneNumber,
-                FirstName = dto.FirstName,
-                SecondName = dto.SecondName,
-                LastName = dto.LastName,
+                UserName = model.Email,
+                Email = model.Email,
+                PhoneNumber = model.PhoneNumber,
+                FirstName = model.FirstName,
+                SecondName = model.SecondName,
+                LastName = model.LastName,
                 CreatedAt = DateTime.UtcNow
             };
 
-            var identityResult = await _userManager.CreateAsync(user, dto.Password);
+            var identityResult = await _userManager.CreateAsync(user, model.Password);
             if (!identityResult.Succeeded)
                 return IdentityErrors(identityResult.Errors);
 
@@ -78,6 +78,64 @@ namespace RoomBooking.Application.Services
             var token = await GenerateJwtToken(user);
 
             return Result<string>.Success(token);
+        }
+        public async Task<Result<bool>> AssignRole(AssignRoleModel model)
+        {
+            if (!Enum.IsDefined(typeof(UserRole), model.Role))
+                return Result<bool>.Failure("Невалідна роль.", ExeptionType.Validation);
+
+            var user = await _userManager.FindByIdAsync(model.UserId.ToString());
+            if(user is null)
+            {
+                return Result<bool>.Failure($"Користувач з id {model.UserId} не існує", ExeptionType.NotFound);
+            }
+
+            var roleName = model.Role.ToString();
+
+            var alreadyInRole = await _userManager.IsInRoleAsync(user, roleName);
+            if (alreadyInRole)
+                return Result<bool>.Failure("Користувач вже має цю роль.", ExeptionType.Conflict);
+
+            var roleResult = await _userManager.AddToRoleAsync(user, roleName);
+            if (!roleResult.Succeeded)
+            {
+                return Result<bool>.Failure("Не вдалось призначити роль користувачу.", ExeptionType.InternalServerError);
+            }
+
+            if (model.Role == UserRole.Admin && !await _userManager.IsInRoleAsync(user, nameof(UserRole.Client)))
+            {
+                await _userManager.AddToRoleAsync(user, nameof(UserRole.Client));
+            }
+
+            return Result<bool>.Success(true);
+        }
+
+        public async Task<Result<bool>> RemoveRole(AssignRoleModel model)
+        {
+            if (!Enum.IsDefined(typeof(UserRole), model.Role))
+                return Result<bool>.Failure("Невалідна роль.", ExeptionType.Validation);
+
+            var user = await _userManager.FindByIdAsync(model.UserId.ToString());
+            if (user is null)
+            {
+                return Result<bool>.Failure($"Користувач з id {model.UserId} не існує", ExeptionType.NotFound);
+            }
+            var roleName = model.Role.ToString();
+
+            if (roleName == nameof(UserRole.Admin))
+            {
+                var admins = await _userManager.GetUsersInRoleAsync(nameof(UserRole.Admin));
+                if (admins.Count <= 1)
+                    return Result<bool>.Failure("Неможливо видалити останнього адміністратора.", ExeptionType.Forbidden);
+            }
+
+            var roleResult = await _userManager.RemoveFromRoleAsync(user, roleName);
+            if (!roleResult.Succeeded)
+            {
+                return Result<bool>.Failure("Не вдалось видалити роль користувачу.", ExeptionType.InternalServerError);
+            }
+
+            return Result<bool>.Success(true);
         }
         private Result<string> IdentityErrors(IEnumerable<IdentityError> errors)
         {
@@ -130,6 +188,6 @@ namespace RoomBooking.Application.Services
             var token = tokenHandler.CreateToken(tokenDescriptor);
 
             return tokenHandler.WriteToken(token);
-        }
+        }    
     }
 }

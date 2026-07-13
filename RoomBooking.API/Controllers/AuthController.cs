@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using RoomBooking.Application.Abstractions.Services;
 using RoomBooking.Application.DTOs.Auth;
 using RoomBooking.Domain.Enums;
@@ -26,13 +27,7 @@ namespace RoomBooking.API.Controllers
                 return Ok( result.Data);
             }
 
-            if (result.ErrorType == ExeptionType.Conflict)
-                return Conflict(result.ErrorMessage);
-            if (result.ErrorType == ExeptionType.Validation)
-                return BadRequest(result.ErrorMessage);
-
-            return BadRequest();
-        
+            return MapError(result.ErrorType, result.ErrorMessage);
         }
 
         [HttpPost("login")]
@@ -45,16 +40,50 @@ namespace RoomBooking.API.Controllers
                 return Ok(result.Data);
             }
 
-            if (result.ErrorType == ExeptionType.NotFound)
-                return NotFound(result.ErrorMessage);
-
-            if (result.ErrorType == ExeptionType.Forbidden)
-                return StatusCode((int)HttpStatusCode.Forbidden, result.ErrorMessage);
-
-            if (result.ErrorType == ExeptionType.Unauthorized)
-                return Unauthorized(result.ErrorMessage);
-
-            return BadRequest();
+            return MapError(result.ErrorType, result.ErrorMessage);
         }
+
+        [Authorize(Roles = nameof(UserRole.Admin))]
+        [HttpPost("assign-role")]
+        public async Task<IActionResult> AssignRole([FromBody] AssignRoleModel model)
+        {
+            var result = await _authService.AssignRole(model);
+
+            if (result.Succeeded == true)
+            {
+                return Ok(result.Data);
+            }
+
+            return MapError(result.ErrorType, result.ErrorMessage);
+        }
+
+        [Authorize(Roles = nameof(UserRole.Admin))]
+        [HttpPost("remove-role")]
+        public async Task<IActionResult> RemoveRole([FromBody] AssignRoleModel model)
+        {
+            var result = await _authService.RemoveRole(model);
+
+            if (result.Succeeded == true)
+            {
+                return Ok(result.Data);
+            }
+
+            return MapError(result.ErrorType, result.ErrorMessage);
+        }
+
+        private IActionResult MapError(ExeptionType errorType, string? errorMessage)
+        {
+            return errorType switch
+            {
+                ExeptionType.NotFound => NotFound(errorMessage),
+                ExeptionType.Conflict => Conflict(errorMessage),
+                ExeptionType.Validation => BadRequest(errorMessage),
+                ExeptionType.Forbidden => StatusCode((int)HttpStatusCode.Forbidden, errorMessage),
+                ExeptionType.Unauthorized => Unauthorized(errorMessage),
+                ExeptionType.InternalServerError => BadRequest(errorMessage),
+                _ => BadRequest(errorMessage)
+            };
+        }
+
     }
 }
