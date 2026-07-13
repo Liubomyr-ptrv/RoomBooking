@@ -32,21 +32,7 @@ namespace RoomBooking.Infrastructure.Extensions
                        ValidIssuer = jwtOptions.Issuer,
                        ValidAudience = jwtOptions.Audience,
                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Key))
-                   };
-
-                   options.Events = new JwtBearerEvents
-                   {
-                       OnAuthenticationFailed = context =>
-                       {
-                           Console.WriteLine($"Authentication failed: {context.Exception.Message}");
-                           return Task.CompletedTask;
-                       },
-                       OnChallenge = context =>
-                       {
-                           Console.WriteLine($"Token validation failed: {context.AuthenticateFailure?.Message}");
-                           return Task.CompletedTask;
-                       }
-                   };
+                   };          
                });
             return services;
         }

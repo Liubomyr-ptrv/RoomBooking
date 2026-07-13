@@ -2,6 +2,7 @@
 using RoomBooking.Application.Abstractions.Services;
 using RoomBooking.Application.DTOs.Auth;
 using RoomBooking.Domain.Enums;
+using System.Net;
 
 namespace RoomBooking.API.Controllers
 {
@@ -48,7 +49,7 @@ namespace RoomBooking.API.Controllers
                 return NotFound(result.ErrorMessage);
 
             if (result.ErrorType == ExeptionType.Forbidden)
-                return StatusCode(423, result.ErrorMessage);
+                return StatusCode((int)HttpStatusCode.Forbidden, result.ErrorMessage);
 
             if (result.ErrorType == ExeptionType.Unauthorized)
                 return Unauthorized(result.ErrorMessage);
