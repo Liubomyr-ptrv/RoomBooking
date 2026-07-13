@@ -37,12 +37,12 @@ namespace RoomBooking.Application.Services
 
             if (signInResult.IsLockedOut)
                 return Result<string>.Failure("Акаунт тимчасово заблоковано через забагато невдалих спроб.", ExeptionType.Forbidden);
-           
+
 
             if (!signInResult.Succeeded)
                 return Result<string>.Failure("Невірний email або пароль.", ExeptionType.Validation);
-         
-            var token = GenerateJwtToken(existing);
+
+            var token = await GenerateJwtToken(existing);
 
             return Result<string>.Success(token);
         }
@@ -51,8 +51,8 @@ namespace RoomBooking.Application.Services
         {
             var existing = await _userManager.FindByEmailAsync(dto.Email);
             if (existing is not null)
-                return Result<string>.Failure($"Користувач з email '{dto.Email}' вже існує.",ExeptionType.Conflict);
-            
+                return Result<string>.Failure($"Користувач з email '{dto.Email}' вже існує.", ExeptionType.Conflict);
+
             var user = new User
             {
                 Id = Guid.NewGuid(),
@@ -69,14 +69,20 @@ namespace RoomBooking.Application.Services
             if (!identityResult.Succeeded)
                 return IdentityErrors(identityResult.Errors);
 
-            var token = GenerateJwtToken(user);
+            var roleResult = await _userManager.AddToRoleAsync(user, nameof(UserRole.Client));
+            if (!roleResult.Succeeded)
+            {
+                return Result<string>.Failure("Не вдалось призначити роль користувачу.",ExeptionType.InternalServerError);
+            }
+
+            var token = await GenerateJwtToken(user);
 
             return Result<string>.Success(token);
         }
         private Result<string> IdentityErrors(IEnumerable<IdentityError> errors)
         {
             var errorList = errors.ToList();
-            if(errorList.Any(c => c.Code.Contains("Password")))
+            if (errorList.Any(c => c.Code.Contains("Password")))
             {
                 return Result<string>.Failure("Пароль не відповідає вимогам безпеки: мінімум 8 символів.", ExeptionType.Validation);
             }
@@ -89,20 +95,27 @@ namespace RoomBooking.Application.Services
                string.Join("; ", errorList.Select(e => e.Description)),
                ExeptionType.InternalServerError);
         }
-        private string GenerateJwtToken(User user)
+        private async Task<string> GenerateJwtToken(User user)
         {
-            
+
             var secretKey = _jwtConfigOptions.Value.Key;
 
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
             var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
-            var claims = new[]
+            var roles = await _userManager.GetRolesAsync(user);
+
+            var claims = new List<Claim>
             {
-            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-            new Claim(JwtRegisteredClaimNames.Email, user.Email!),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-        };
+            new (JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new (JwtRegisteredClaimNames.Email, user.Email!),
+            new (JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+              };
+
+            foreach (var role in roles)
+            {
+                claims.Add(new Claim(ClaimTypes.Role, role));
+            }
 
             var tokenDescriptor = new SecurityTokenDescriptor
             {

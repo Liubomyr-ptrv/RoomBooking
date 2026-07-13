@@ -1,17 +1,14 @@
 ﻿using Microsoft.AspNetCore.Identity;
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 
 namespace RoomBooking.Domain.Entities
 {
     public class User : IdentityUser<Guid>
     { 
-        public Guid Id { get; set; }
-        public string FirstName { get; set; }
-        public string SecondName { get; set; }
-        public string LastName { get; set; }
+        public string? FirstName { get; set; }
+        public string? SecondName { get; set; }
+        public string? LastName { get; set; }
        
-        public string PhoneNumber { get; set; }
+        public string? PhoneNumber { get; set; }
         public DateTime CreatedAt { get; set; }
 
         public ICollection<Booking> Bookings { get; set; } = new List<Booking>();

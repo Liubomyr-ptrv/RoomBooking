@@ -1,11 +1,13 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using RoomBooking.Application.Abstractions.Services;
 using RoomBooking.Application.Services;
 using RoomBooking.Application.Settings;
+using RoomBooking.Domain.Entities;
+using RoomBooking.Domain.Enums;
 using RoomBooking.Infrastructure.Db;
 using RoomBooking.Infrastructure.Extensions;
-
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -44,6 +46,47 @@ builder.Services.AddAuthorization();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
+
+
+    foreach (var role in Enum.GetNames<UserRole>())
+    {
+        if (!await roleManager.RoleExistsAsync(role))
+        {
+            await roleManager.CreateAsync(new IdentityRole<Guid>(role));
+        }
+    }
+
+    var adminEmail = builder.Configuration["AdminUser:Email"];
+    var adminPassword = builder.Configuration["AdminUser:Password"];
+
+    if (!string.IsNullOrEmpty(adminEmail) && !string.IsNullOrEmpty(adminPassword))
+    {
+        var adminUser = await userManager.FindByEmailAsync(adminEmail);
+
+        if (adminUser is null)
+        {
+            adminUser = new User
+            {
+                Id = Guid.NewGuid(),
+                UserName = adminEmail,
+                Email = adminEmail,
+                CreatedAt = DateTime.UtcNow,
+            };
+
+            var result = await userManager.CreateAsync(adminUser, adminPassword);
+
+            if (result.Succeeded)
+            {
+                await userManager.AddToRoleAsync(adminUser, nameof(UserRole.Admin));
+            }
+        }
+    }
+}
 
 if (app.Environment.IsDevelopment())
 {
