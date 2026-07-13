@@ -64,7 +64,7 @@ namespace RoomBooking.Infrastructure.Services
 
             var identityResult = await _userManager.CreateAsync(user, dto.Password);
             if (!identityResult.Succeeded)
-                throw new Exception(string.Join("; ", identityResult.Errors.Select(e => e.Description)));
+                throw new InvalidOperationException(string.Join("; ", identityResult.Errors.Select(e => e.Description)));
 
             return GenerateJwtToken(user);
         }

@@ -8,11 +8,34 @@ using RoomBooking.Application.Settings;
 using RoomBooking.Domain.Entities;
 using RoomBooking.Infrastructure.Db;
 using System.Text;
+using Microsoft.OpenApi;
+
+
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
-builder.Services.AddOpenApi();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        In = ParameterLocation.Header,
+        Description = "Input JWT in format: Bearer {token}",
+        Name = "Authorization",
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+
+    c.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+    {
+        { new OpenApiSecuritySchemeReference("Bearer", document), [] }
+    });
+});
+
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddIdentityCore<User>(options =>
 {
@@ -29,11 +52,14 @@ builder.Services.AddIdentityCore<User>(options =>
 .AddDefaultTokenProviders();
 
 builder.Services.AddOptions<JwtConfigurationOptions>()
-    .BindConfiguration("JwtConfiguration");
+    .BindConfiguration("JwtSettings");
 
-var key = builder.Configuration.GetValue<string>("JwtConfiguration:Key");
-var issuer = builder.Configuration.GetValue<string>("JwtConfiguration:Issuer");
-var audience = builder.Configuration.GetValue<string>("JwtConfiguration:Audience");
+var key = builder.Configuration.GetValue<string>("JwtSettings:Key")
+    ?? throw new InvalidOperationException("JwtSettings:Key не налаштовано");
+var issuer = builder.Configuration.GetValue<string>("JwtSettings:Issuer")
+    ?? throw new InvalidOperationException("JwtSettings:Issuer не налаштовано");
+var audience = builder.Configuration.GetValue<string>("JwtSettings:Audience")
+    ?? throw new InvalidOperationException("JwtSettings:Audience не налаштовано");
 
 builder.Services.AddAuthentication(options =>
 {
@@ -69,10 +95,8 @@ builder.Services.AddAuthentication(options =>
         };
     });
 
-builder.Services.AddAuthorization();
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddAuthorization();
 
 builder.Services.AddScoped<IAuthService, AuthService>();
 
@@ -80,11 +104,13 @@ var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

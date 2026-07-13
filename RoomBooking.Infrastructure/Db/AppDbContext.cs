@@ -14,7 +14,12 @@ namespace RoomBooking.Infrastructure.Db
         public DbSet<Booking> Bookings { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
-        {
+        { 
+            base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Ignore<IdentityPasskeyData>();
+            modelBuilder.Ignore<IdentityUserPasskey<Guid>>();
+
             modelBuilder.Entity<Booking>()
                 .HasOne(c => c.User)
                 .WithMany(c => c.Bookings)
@@ -29,7 +34,7 @@ namespace RoomBooking.Infrastructure.Db
 
             modelBuilder.Entity<User>()
                 .HasIndex(u => u.PhoneNumber)
-                .IsUnique();   
+                .IsUnique();
         }
     }
 }
