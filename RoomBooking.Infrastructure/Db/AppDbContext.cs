@@ -1,13 +1,12 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using RoomBooking.Application.Abstractions;
+using RoomBooking.Application.Abstractions.Db;
 using RoomBooking.Domain.Entities;
-using RoomBooking.Infrastructure.Identity;
 
 namespace RoomBooking.Infrastructure.Db
 {
-    public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>, IAppDbContext
+    public class AppDbContext : IdentityDbContext<User, IdentityRole<Guid>, Guid>, IAppDbContext
     {
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
         public DbSet<User> Users { get; set; }
@@ -30,10 +29,7 @@ namespace RoomBooking.Infrastructure.Db
 
             modelBuilder.Entity<User>()
                 .HasIndex(u => u.PhoneNumber)
-                .IsUnique();
-
-            modelBuilder.Entity<User>().ToTable("Users");
-            modelBuilder.Entity<ApplicationUser>().ToTable("AspNetUsers");
+                .IsUnique();   
         }
     }
 }

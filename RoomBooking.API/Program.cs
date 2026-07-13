@@ -2,8 +2,11 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using RoomBooking.Application.Abstractions.Services;
+using RoomBooking.Infrastructure.Services;
+using RoomBooking.Application.Settings;
+using RoomBooking.Domain.Entities;
 using RoomBooking.Infrastructure.Db;
-using RoomBooking.Infrastructure.Identity;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,7 +14,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
-builder.Services.AddIdentityCore<ApplicationUser>(options =>
+builder.Services.AddIdentityCore<User>(options =>
 {
     options.Password.RequireDigit = true;
     options.Password.RequiredLength = 8;
@@ -24,6 +27,9 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 .AddEntityFrameworkStores<AppDbContext>()
 .AddSignInManager()
 .AddDefaultTokenProviders();
+
+builder.Services.AddOptions<JwtConfigurationOptions>()
+    .BindConfiguration("JwtConfiguration");
 
 var key = builder.Configuration.GetValue<string>("JwtConfiguration:Key");
 var issuer = builder.Configuration.GetValue<string>("JwtConfiguration:Issuer");
@@ -67,6 +73,8 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 var app = builder.Build();
 

@@ -1,7 +1,11 @@
-﻿namespace RoomBooking.Domain.Entities
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace RoomBooking.Domain.Entities
 {
     public class Room
     {
+        [Key, DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public Guid Id { get; set; }
         public string Name { get; set; }
         public string Description { get; set; }

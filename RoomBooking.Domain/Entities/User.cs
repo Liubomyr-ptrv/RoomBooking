@@ -1,9 +1,11 @@
-﻿using System.Security.Principal;
+﻿using Microsoft.AspNetCore.Identity;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace RoomBooking.Domain.Entities
 {
-    public class User 
-    {
+    public class User : IdentityUser<Guid>
+    { 
         public Guid Id { get; set; }
 
         public string Email { get; set; }
