@@ -37,7 +37,10 @@ namespace RoomBooking.Application.Services
                 return Result<bool>.Failure("Не вдалось призначити роль користувачу.", ExeptionType.InternalServerError);
             }
 
-            if (model.Role == UserRole.Admin && !await _userManager.IsInRoleAsync(user, nameof(UserRole.Client)))
+            var hasClient = await _userManager.IsInRoleAsync(user, nameof(UserRole.Client));
+            var hasAdmin = model.Role == UserRole.Admin;
+
+            if (hasAdmin  && !hasClient)
             {
                 await _userManager.AddToRoleAsync(user, nameof(UserRole.Client));
             }
