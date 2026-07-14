@@ -17,7 +17,7 @@ namespace RoomBooking.API.Controllers.Base
                 ExeptionType.Validation => BadRequest(errorMessage),
                 ExeptionType.Forbidden => StatusCode((int)HttpStatusCode.Forbidden, errorMessage),
                 ExeptionType.Unauthorized => Unauthorized(errorMessage),
-                ExeptionType.InternalServerError => BadRequest(errorMessage),
+                ExeptionType.InternalServerError => StatusCode((int)HttpStatusCode.InternalServerError, errorMessage),
                 _ => BadRequest(errorMessage)
             };
         }
