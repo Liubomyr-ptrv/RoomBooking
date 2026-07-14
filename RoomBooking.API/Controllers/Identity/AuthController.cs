@@ -4,7 +4,7 @@ using RoomBooking.Application.DTOs.Auth;
 using RoomBooking.Domain.Enums;
 using System.Net;
 
-namespace RoomBooking.API.Controllers
+namespace RoomBooking.API.Controllers.Identity
 {
     [Route("api/[controller]")]
     [ApiController]
