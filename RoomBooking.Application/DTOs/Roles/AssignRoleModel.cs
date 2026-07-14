@@ -1,7 +1,7 @@
 ﻿using RoomBooking.Domain.Enums;
 using System.ComponentModel.DataAnnotations;
 
-namespace RoomBooking.Application.DTOs.Auth
+namespace RoomBooking.Application.DTOs.Roles
 {
     public class AssignRoleModel
     {

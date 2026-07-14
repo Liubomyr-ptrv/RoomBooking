@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using RoomBooking.Application.Abstractions.Services;
 using RoomBooking.Application.Common;
-using RoomBooking.Application.DTOs.Auth;
+using RoomBooking.Application.DTOs.Roles;
 using RoomBooking.Domain.Entities;
 using RoomBooking.Domain.Enums;
 

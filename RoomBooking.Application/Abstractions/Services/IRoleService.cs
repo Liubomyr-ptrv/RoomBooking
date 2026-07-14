@@ -1,5 +1,5 @@
 ﻿using RoomBooking.Application.Common;
-using RoomBooking.Application.DTOs.Auth;
+using RoomBooking.Application.DTOs.Roles;
 
 namespace RoomBooking.Application.Abstractions.Services
 {

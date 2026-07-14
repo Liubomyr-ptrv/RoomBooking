@@ -2,7 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using RoomBooking.API.Controllers.Base;
 using RoomBooking.Application.Abstractions.Services;
-using RoomBooking.Application.DTOs.Auth;
+using RoomBooking.Application.DTOs.Roles;
 using RoomBooking.Domain.Enums;
 
 namespace RoomBooking.API.Controllers.Identity
