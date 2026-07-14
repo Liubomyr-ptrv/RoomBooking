@@ -29,33 +29,33 @@ namespace RoomBooking.Application.Services
 
         public async Task<Result<List<BookingModel>>> GetMyAsync(Guid userId)
         {
-            var result = await _context.Bookings.AsNoTracking().Where(x => x.UserId == userId).ToListAsync();
-
-            if (result == null || !result.Any())
-            {
-
-                return Result<List<BookingModel>>.Success(new List<BookingModel>());
-            }
+            var result = await _context.Bookings.AsNoTracking().Where(x => x.UserId == userId).OrderBy(x => x.StartTime).ToListAsync();
 
             return Result<List<BookingModel>>.Success(result.Select(MapToDto).ToList());
 
         }
         public async Task<Result<List<BookingModel>>> GetAllAsync()
         {
-            var result = await _context.Bookings.AsNoTracking().ToListAsync();
+            var result = await _context.Bookings.AsNoTracking().OrderBy(x => x.StartTime).ToListAsync();
 
-            if (!result.Any())
-            {
-                return Result<List<BookingModel>>.Success(new List<BookingModel>());
-            }
-
-            return Result<List<BookingModel>>.Success(result.Select(MapToDto).ToList()); ;
+            return Result<List<BookingModel>>.Success(result.Select(MapToDto).ToList()); 
         }
+
         public async Task<Result<BookingModel>> CreateBookingAsync(CreateBookingModel model, Guid userId)
         {
+            if (model.StartTime < DateTime.UtcNow)
+            {
+                return Result<BookingModel>.Failure("Неможливо створити бронювання в минулому.", ExeptionType.Validation);
+            }
+              
             if (model.StartTime >= model.EndTime)
             {
                 return Result<BookingModel>.Failure("Час завершення має бути пізніше за час початку.", ExeptionType.Validation);
+            }
+
+            if (model.AttendeesCount <= 0)
+            {
+                return Result<BookingModel>.Failure("Кількість учасників має бути більшою за нуль.", ExeptionType.Validation);
             }
 
             var room = await _context.Rooms.FirstOrDefaultAsync(x => x.Id == model.RoomId);
@@ -65,13 +65,28 @@ namespace RoomBooking.Application.Services
                 return Result<BookingModel>.Failure("Кімнату не знайдено", ExeptionType.NotFound);
             }
 
-            var capacity = model.AttendeesCount <= room.Capacity;
-            if (!capacity)
+            if (!room.IsActive)
+            {
+                return Result<BookingModel>.Failure("Ця кімната наразі недоступна для бронювання.", ExeptionType.Conflict);
+            }
+
+            var exceedsCapacity = model.AttendeesCount > room.Capacity;
+            if (exceedsCapacity)
             {
                 return Result<BookingModel>.Failure($"Забагато людей для цієї кімнати, її ємність {room.Capacity} людей", ExeptionType.Validation);
             }
+
+            var hasOverlap = await _context.Bookings.AnyAsync(b =>
+                      b.RoomId == model.RoomId &&
+                      b.Status != BookingStatus.Cancelled &&
+                      model.StartTime < b.EndTime &&
+                      model.EndTime > b.StartTime);
+
+            if (hasOverlap)
+                return Result<BookingModel>.Failure("Кімната вже заброньована на цей час.", ExeptionType.Conflict);
+
             var durationInHours = (decimal)(model.EndTime - model.StartTime).TotalHours;
-            var calculatedPrice = room.PricePerHouse * durationInHours * model.AttendeesCount;
+            var calculatedPrice = room.PricePerHouse * durationInHours;
 
             var booking = new Booking
             {
@@ -102,7 +117,14 @@ namespace RoomBooking.Application.Services
             }
 
             if (result.Status == BookingStatus.Cancelled)
+            {
                 return Result<bool>.Failure("Бронювання вже скасоване.", ExeptionType.Conflict);
+            }
+
+            if (result.StartTime <= DateTime.UtcNow)
+            {
+                return Result<bool>.Failure("Неможливо скасувати бронювання, яке вже розпочалося або завершилося.", ExeptionType.Conflict);
+            }
 
             result.Status = BookingStatus.Cancelled;
             await _context.SaveChangesAsync();
