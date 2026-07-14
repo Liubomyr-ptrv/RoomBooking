@@ -1,0 +1,14 @@
+﻿using RoomBooking.Application.Common;
+using RoomBooking.Application.DTOs.Booking;
+
+namespace RoomBooking.Application.Abstractions.Services
+{
+    public interface IBookingService
+    {
+        public Task<Result<BookingModel>> GetByIdAsync(Guid bookingId, Guid userId);
+        public Task<Result<List<BookingModel>>> GetMyAsync(Guid userId);
+        public Task<Result<List<BookingModel>>> GetAllAsync();
+        public Task<Result<BookingModel>> CreateBookingAsync(CreateBookingModel model, Guid userId);
+        public Task<Result<bool>> CancelBookingAsync(Guid bookingId, Guid userId);
+    }
+}

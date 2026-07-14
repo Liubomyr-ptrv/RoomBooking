@@ -1,10 +1,11 @@
 ﻿using RoomBooking.Domain.Enums;
 
-namespace RoomBooking.Domain.Entities
+namespace RoomBooking.Application.DTOs.Booking
 {
-    public class Booking
+    public class BookingModel
     {
         public Guid Id { get; set; }
+        public Guid RoomId { get; set; }
         public required DateTime StartTime { get; set; }
         public required DateTime EndTime { get; set; }
         public  string? Title { get; set; }
@@ -12,10 +13,5 @@ namespace RoomBooking.Domain.Entities
         public required decimal TotalPrice { get; set; }
         public string? Notes { get; set; }
         public BookingStatus Status { get; set; }
-        
-        public Guid UserId { get; set; }
-        public User User { get; set; }
-        public Guid RoomId { get; set; }
-        public Room Room { get; set; }
     }
 }
