@@ -16,7 +16,7 @@ namespace RoomBooking.API.Controllers.Identity
             _authService = authService;
         }
         [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] RegisterModel registerModel)
+        public async Task<IActionResult> RegisterAsync([FromBody] RegisterModel registerModel)
         {
             var result = await _authService.RegisterAsync(registerModel);
 
@@ -29,7 +29,7 @@ namespace RoomBooking.API.Controllers.Identity
         }
 
         [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] LoginModel loginModel)
+        public async Task<IActionResult> LoginAsync([FromBody] LoginModel loginModel)
         {
             var result = await _authService.LoginAsync(loginModel);
 

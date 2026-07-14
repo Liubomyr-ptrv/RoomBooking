@@ -19,7 +19,7 @@ namespace RoomBooking.API.Controllers.Identity
 
         [Authorize(Roles = nameof(UserRole.Admin))]
         [HttpPost("assign-role")]
-        public async Task<IActionResult> AssignRole([FromBody] AssignRoleModel model)
+        public async Task<IActionResult> AssignRoleAsync([FromBody] AssignRoleModel model)
         {
             var result = await _roleService.AssignRoleAsync(model);
 
@@ -33,7 +33,7 @@ namespace RoomBooking.API.Controllers.Identity
 
         [Authorize(Roles = nameof(UserRole.Admin))]
         [HttpPost("remove-role")]
-        public async Task<IActionResult> RemoveRole([FromBody] AssignRoleModel model)
+        public async Task<IActionResult> RemoveRoleAsync([FromBody] AssignRoleModel model)
         {
             var result = await _roleService.RemoveRoleAsync(model);
 
