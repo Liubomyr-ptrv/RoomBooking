@@ -1,12 +1,27 @@
-﻿namespace RoomBooking.Application.DTOs.Auth
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace RoomBooking.Application.DTOs.Auth
 {
     public class RegisterModel
     {
-        public string Email { get; set; }
-        public string Password { get; set; }
-        public string FirstName { get; set; }
-        public string SecondName { get; set; }
-        public string LastName { get; set; }
-        public string PhoneNumber { get; set; }
+        [Required(ErrorMessage = "Email обов'язковий.")]
+        [EmailAddress]
+        public required string Email { get; set; }
+
+        [Required(ErrorMessage = "Пароль обов'язковий.")]
+        public required string Password { get; set; }
+
+        [Required(ErrorMessage = "Ім'я обов'язкове.")]
+        public required string FirstName { get; set; }
+
+        [Required(ErrorMessage = "По батькові обов'язкове.")]
+        public required string SecondName { get; set; }
+
+        [Required(ErrorMessage = "Прізвище обов'язкове.")]
+        public required string LastName { get; set; }
+
+        [Required(ErrorMessage = "Номер телефону обов'язковий.")]
+        [Phone]
+        public required string PhoneNumber { get; set; }
     }
 }

@@ -18,6 +18,7 @@ namespace RoomBooking.Infrastructure.Extensions
                 options.Password.RequireUppercase = false;
                 options.Password.RequireLowercase = false;
                 options.Password.RequiredUniqueChars = 1;
+                
             })          
                 .AddEntityFrameworkStores<AppDbContext>()
                 .AddSignInManager()
