@@ -21,7 +21,7 @@ BEGIN
             'lubomirpetrov307@gmail.com',
             'LUBOMIRPETROV307@GMAIL.COM',
             true,
-            'AQAAAAIAAYagAAAAEC9T+Td+Cx5HSVvlRFx+34UCYn9biEdIcus6T77Hg+jqZzOjfaPrsrItmqcXLbzA7Q==',
+            'AQAAAAIAAYagAAAAEKQplPAN6LpUF/0OBdGOGQHa3c8A8QbKzzYlD0Irk/gq5u1yQuQTl2xY+NgDUzV1zA==',
             gen_random_uuid()::text,
             gen_random_uuid()::text,
             false,
