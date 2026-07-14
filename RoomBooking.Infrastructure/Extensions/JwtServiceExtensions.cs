@@ -37,6 +37,20 @@ namespace RoomBooking.Infrastructure.Extensions
                    };
                    options.Events = new JwtBearerEvents
                    {
+                       OnChallenge = context =>
+                       {                     
+                           context.HandleResponse();
+
+                           context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                           context.Response.ContentType = "application/json";
+
+                           var payload = JsonSerializer.Serialize(new
+                           {
+                               message = "Користувач не авторизований. Токен відсутній, недійсний або його термін дії закінчився."
+                           });
+
+                           return context.Response.WriteAsync(payload);
+                       },
                        OnForbidden = context =>
                        {
                            context.Response.StatusCode = StatusCodes.Status403Forbidden;
