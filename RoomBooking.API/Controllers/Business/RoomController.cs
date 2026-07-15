@@ -1,14 +1,15 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using RoomBooking.API.Controllers.Base;
 using RoomBooking.Application.Abstractions.Services;
 using RoomBooking.Application.DTOs.Room;
 using RoomBooking.Domain.Enums;
 using System.Net;
 
-namespace RoomBooking.API.Controllers
+namespace RoomBooking.API.Controllers.Business
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class RoomController : ControllerBase
+    public class RoomController : BaseApiController
     {
         private readonly IRoomService _roomService;
 
@@ -44,7 +45,7 @@ namespace RoomBooking.API.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateAsync([FromBody] CreateRoomModel model)
+        public async Task<IActionResult> CreateAsync([FromBody] RoomInputModel model)
         {
             var result = await _roomService.CreateAsync(model);
 
@@ -77,20 +78,6 @@ namespace RoomBooking.API.Controllers
                 return NoContent();
 
             return MapError(result.ErrorType, result.ErrorMessage);
-        }
-
-        private IActionResult MapError(ExeptionType errorType, string? errorMessage)
-        {
-            return errorType switch
-            {
-                ExeptionType.NotFound => NotFound(errorMessage),
-                ExeptionType.Conflict => Conflict(errorMessage),
-                ExeptionType.Validation => BadRequest(errorMessage),
-                ExeptionType.Forbidden => StatusCode((int)HttpStatusCode.Forbidden, errorMessage),
-                ExeptionType.Unauthorized => Unauthorized(errorMessage),
-                ExeptionType.InternalServerError => BadRequest(errorMessage),
-                _ => BadRequest(errorMessage)
-            };
-        }
+        }   
     }
 }
