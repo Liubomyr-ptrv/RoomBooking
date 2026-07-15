@@ -56,7 +56,7 @@ namespace RoomBooking.API.Controllers
             return MapError(result.ErrorType, result.ErrorMessage);
         }
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateAsync(Guid id,[FromBody] UpdateRoomModel model)
+        public async Task<IActionResult> UpdateAsync(Guid id,[FromBody] RoomInputModel model)
         {
             var result = await _roomService.UpdateAsync(id,model);
 

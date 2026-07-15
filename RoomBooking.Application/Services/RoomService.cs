@@ -31,10 +31,12 @@ namespace RoomBooking.Application.Services
         {
             var result = await _context.Rooms.AsNoTracking().ToListAsync();
 
-            return Result<List<RoomModel>>.Success(result.Select(MapToDto).ToList());
+            var rooms = Result<List<RoomModel>>.Success(result.Select(MapToDto).ToList());
+
+            return rooms;
         }
 
-        public async Task<Result<RoomModel>> CreateAsync(CreateRoomModel model)
+        public async Task<Result<RoomModel>> CreateAsync(RoomInputModel model)
         {
             var nameExists = await _context.Rooms
                 .AnyAsync(r => r.Name.ToLower() == model.Name.ToLower());
@@ -61,7 +63,7 @@ namespace RoomBooking.Application.Services
             return Result<RoomModel>.Success(MapToDto(room));
         }
 
-        public async Task<Result<RoomModel>> UpdateAsync(Guid id, UpdateRoomModel model)
+        public async Task<Result<RoomModel>> UpdateAsync(Guid id, RoomInputModel model)
         {
             var updateRoom = await _context.Rooms.FirstOrDefaultAsync(r => r.Id == id);
             if (updateRoom is null)
