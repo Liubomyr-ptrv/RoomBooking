@@ -17,7 +17,9 @@ namespace RoomBooking.Application.Services
         }
         public async Task<Result<BookingModel>> GetByIdAsync(Guid bookingId, Guid userId)
         {
-            var result = await _context.Bookings.AsNoTracking().FirstOrDefaultAsync(x => x.Id == bookingId && x.UserId == userId);
+            var result = await _context.Bookings
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == bookingId && x.UserId == userId);
 
             if (result is null)
             {
@@ -27,30 +29,33 @@ namespace RoomBooking.Application.Services
             return Result<BookingModel>.Success(MapToDto(result));
         }
 
-        public async Task<Result<List<BookingModel>>> GetMyAsync(Guid userId)
+        public async Task<Result<List<BookingModel>>> GetByUserIdAsync(Guid userId)
         {
-            var result = await _context.Bookings.AsNoTracking().Where(x => x.UserId == userId).OrderBy(x => x.StartTime).ToListAsync();
+            var result = await _context.Bookings
+                .AsNoTracking()
+                .Where(x => x.UserId == userId)
+                .OrderBy(x => x.StartTime)
+                .ToListAsync();
 
             return Result<List<BookingModel>>.Success(result.Select(MapToDto).ToList());
 
         }
         public async Task<Result<List<BookingModel>>> GetAllAsync()
         {
-            var result = await _context.Bookings.AsNoTracking().OrderBy(x => x.StartTime).ToListAsync();
+            var result = await _context.Bookings
+                .AsNoTracking()
+                .OrderBy(x => x.StartTime)
+                .ToListAsync();
 
             return Result<List<BookingModel>>.Success(result.Select(MapToDto).ToList()); 
         }
 
         public async Task<Result<BookingModel>> CreateBookingAsync(CreateBookingModel model, Guid userId)
         {
-            if (model.StartTime < DateTime.UtcNow)
+            var validationError = BookingTimeValidation(model);
+            if (validationError is not null)
             {
-                return Result<BookingModel>.Failure("Неможливо створити бронювання в минулому.", ExeptionType.Validation);
-            }
-              
-            if (model.StartTime >= model.EndTime)
-            {
-                return Result<BookingModel>.Failure("Час завершення має бути пізніше за час початку.", ExeptionType.Validation);
+                return Result<BookingModel>.Failure(validationError, ExeptionType.Validation);
             }
 
             if (model.AttendeesCount <= 0)
@@ -65,26 +70,16 @@ namespace RoomBooking.Application.Services
                 return Result<BookingModel>.Failure("Кімнату не знайдено", ExeptionType.NotFound);
             }
 
-            if (!room.IsActive)
+            var roomValidation = ValidateRoom(room, model.AttendeesCount);
+            if (!roomValidation.Succeeded)
             {
-                return Result<BookingModel>.Failure("Ця кімната наразі недоступна для бронювання.", ExeptionType.Conflict);
+                return Result<BookingModel>.Failure(roomValidation.ErrorMessage!, roomValidation.ErrorType);
             }
 
-            var exceedsCapacity = model.AttendeesCount > room.Capacity;
-            if (exceedsCapacity)
-            {
-                return Result<BookingModel>.Failure($"Забагато людей для цієї кімнати, її ємність {room.Capacity} людей", ExeptionType.Validation);
-            }
-
-            var hasOverlap = await _context.Bookings.AnyAsync(b =>
-                      b.RoomId == model.RoomId &&
-                      b.Status != BookingStatus.Cancelled &&
-                      model.StartTime < b.EndTime &&
-                      model.EndTime > b.StartTime);
-
+            var hasOverlap = await HasOverlapAsync(model.RoomId, model.StartTime, model.EndTime);
             if (hasOverlap)
                 return Result<BookingModel>.Failure("Кімната вже заброньована на цей час.", ExeptionType.Conflict);
-
+   
             var durationInHours = (decimal)(model.EndTime - model.StartTime).TotalHours;
             var calculatedPrice = room.PricePerHouse * durationInHours;
 
@@ -131,6 +126,37 @@ namespace RoomBooking.Application.Services
 
             return Result<bool>.Success(true);
 
+        }
+        private async Task<bool> HasOverlapAsync(Guid roomId, DateTime startTime, DateTime endTime)
+        {
+            return await _context.Bookings.AnyAsync(b =>
+                b.RoomId == roomId &&
+                b.Status != BookingStatus.Cancelled &&
+                startTime < b.EndTime &&
+                endTime > b.StartTime);
+        }
+        private static Result<Room> ValidateRoom(Room? room, int attendeesCount)
+        {
+            if (room is null)
+                return Result<Room>.Failure("Кімнату не знайдено", ExeptionType.NotFound);
+
+            if (!room.IsActive)
+                return Result<Room>.Failure("Ця кімната наразі недоступна для бронювання.", ExeptionType.Conflict);
+
+            if (attendeesCount > room.Capacity)
+                return Result<Room>.Failure($"Забагато людей для цієї кімнати, її ємність {room.Capacity} людей", ExeptionType.Validation);
+
+            return Result<Room>.Success(room);
+        }
+        private static string? BookingTimeValidation(CreateBookingModel model)
+        {
+            if (model.StartTime < DateTime.UtcNow)
+                return "Неможливо створити бронювання в минулому.";
+
+            if (model.StartTime >= model.EndTime)
+                return "Час завершення має бути пізніше за час початку.";
+
+            return null;
         }
         private static BookingModel MapToDto(Booking booking)
         {

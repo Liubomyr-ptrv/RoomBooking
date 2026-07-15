@@ -33,7 +33,7 @@ namespace RoomBooking.API.Controllers.Business
         public async Task<IActionResult> GetMyAsync()
         {
             var userId = GetUserId();
-            var result = await _bookingService.GetMyAsync(userId);
+            var result = await _bookingService.GetByUserIdAsync(userId);
 
             if (result.Succeeded)
             {
