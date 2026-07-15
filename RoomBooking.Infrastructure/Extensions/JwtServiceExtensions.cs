@@ -1,9 +1,11 @@
 ﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using RoomBooking.Application.Settings;
 using System.Text;
+using System.Text.Json;
 
 namespace RoomBooking.Infrastructure.Extensions
 {
@@ -32,7 +34,36 @@ namespace RoomBooking.Infrastructure.Extensions
                        ValidIssuer = jwtOptions.Issuer,
                        ValidAudience = jwtOptions.Audience,
                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Key))
-                   };          
+                   };
+                   options.Events = new JwtBearerEvents
+                   {
+                       OnChallenge = context =>
+                       {                     
+                           context.HandleResponse();
+
+                           context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                           context.Response.ContentType = "application/json";
+
+                           var payload = JsonSerializer.Serialize(new
+                           {
+                               message = "Користувач не авторизований. Токен відсутній, недійсний або його термін дії закінчився."
+                           });
+
+                           return context.Response.WriteAsync(payload);
+                       },
+                       OnForbidden = context =>
+                       {
+                           context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                           context.Response.ContentType = "application/json";
+
+                           var payload = JsonSerializer.Serialize(new
+                           {
+                               message = "Недостатньо прав для виконання цієї дії."
+                           });
+
+                           return context.Response.WriteAsync(payload);
+                       }
+                   };
                });
             return services;
         }
