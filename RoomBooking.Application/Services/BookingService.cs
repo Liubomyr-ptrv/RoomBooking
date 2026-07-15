@@ -5,6 +5,7 @@ using RoomBooking.Application.Common;
 using RoomBooking.Application.DTOs.Booking;
 using RoomBooking.Domain.Entities;
 using RoomBooking.Domain.Enums;
+using System.Data;
 
 namespace RoomBooking.Application.Services
 {
@@ -40,14 +41,33 @@ namespace RoomBooking.Application.Services
             return Result<List<BookingModel>>.Success(result.Select(MapToDto).ToList());
 
         }
-        public async Task<Result<List<BookingModel>>> GetAllAsync()
+        public async Task<Result<List<BookingModel>>> GetAllAsync(BookingFilterModel? filter = null)
         {
-            var result = await _context.Bookings
-                .AsNoTracking()
+            var query = _context.Bookings.AsNoTracking().AsQueryable();
+
+            if (filter is not null)
+            {
+                if (filter.RoomId.HasValue)
+                    query = query.Where(x => x.RoomId == filter.RoomId.Value);
+
+                if (filter.UserId.HasValue)
+                    query = query.Where(x => x.UserId == filter.UserId.Value);
+
+                if (filter.Status.HasValue)
+                    query = query.Where(x => x.Status == filter.Status.Value);
+
+                if (filter.FromDate.HasValue)
+                    query = query.Where(x => x.StartTime >= filter.FromDate.Value);
+
+                if (filter.ToDate.HasValue)
+                    query = query.Where(x => x.EndTime <= filter.ToDate.Value);
+            }
+
+            var result = await query         
                 .OrderBy(x => x.StartTime)
                 .ToListAsync();
 
-            return Result<List<BookingModel>>.Success(result.Select(MapToDto).ToList()); 
+            return Result<List<BookingModel>>.Success(result.Select(MapToDto).ToList());
         }
 
         public async Task<Result<BookingModel>> CreateBookingAsync(CreateBookingModel model, Guid userId)
@@ -63,12 +83,7 @@ namespace RoomBooking.Application.Services
                 return Result<BookingModel>.Failure("Кількість учасників має бути більшою за нуль.", ExeptionType.Validation);
             }
 
-            var room = await _context.Rooms.FirstOrDefaultAsync(x => x.Id == model.RoomId);
-
-            if (room is null)
-            {
-                return Result<BookingModel>.Failure("Кімнату не знайдено", ExeptionType.NotFound);
-            }
+            var room = await _context.Rooms.AsNoTracking().FirstOrDefaultAsync(x => x.Id == model.RoomId);
 
             var roomValidation = ValidateRoom(room, model.AttendeesCount);
             if (!roomValidation.Succeeded)
@@ -76,12 +91,8 @@ namespace RoomBooking.Application.Services
                 return Result<BookingModel>.Failure(roomValidation.ErrorMessage!, roomValidation.ErrorType);
             }
 
-            var hasOverlap = await HasOverlapAsync(model.RoomId, model.StartTime, model.EndTime);
-            if (hasOverlap)
-                return Result<BookingModel>.Failure("Кімната вже заброньована на цей час.", ExeptionType.Conflict);
-   
             var durationInHours = (decimal)(model.EndTime - model.StartTime).TotalHours;
-            var calculatedPrice = room.PricePerHouse * durationInHours;
+            var calculatedPrice = room.PricePerHour * durationInHours;
 
             var booking = new Booking
             {
@@ -97,8 +108,29 @@ namespace RoomBooking.Application.Services
                 Status = BookingStatus.Confirmed,
             };
 
-            _context.Bookings.Add(booking);
-            await _context.SaveChangesAsync();
+            await using var transaction = await _context.BeginTransactionAsync(IsolationLevel.Serializable);
+
+            try
+            {
+                var hasOverlap = await HasOverlapAsync(model.RoomId, model.StartTime, model.EndTime);
+                if (hasOverlap)
+                {
+                    await transaction.RollbackAsync();
+                    return Result<BookingModel>.Failure("Кімната вже заброньована на цей час.", ExeptionType.Conflict);
+                }
+
+                _context.Bookings.Add(booking);
+                await _context.SaveChangesAsync();
+
+                await transaction.CommitAsync();
+            }
+            catch (DbUpdateException ex) when (_context.IsSerializationFailure(ex))
+            {
+                await transaction.RollbackAsync();
+                return Result<BookingModel>.Failure(
+                    "Хтось щойно забронював цей час. Спробуйте, будь ласка, інший слот.",
+                    ExeptionType.Conflict);
+            }
 
             return Result<BookingModel>.Success(MapToDto(booking));
         }

@@ -1,14 +1,14 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using RoomBooking.API.Controllers.Base;
 using RoomBooking.Application.Abstractions.Services;
 using RoomBooking.Application.DTOs.Room;
-using RoomBooking.Domain.Enums;
-using System.Net;
 
 namespace RoomBooking.API.Controllers.Business
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class RoomController : BaseApiController
     {
         private readonly IRoomService _roomService;
@@ -17,7 +17,7 @@ namespace RoomBooking.API.Controllers.Business
         {
             _roomService = roomService;
         }
-
+        
         [HttpGet("{id}")]
         public async Task<IActionResult> GetByIdAsync(Guid id)
         {
@@ -36,7 +36,7 @@ namespace RoomBooking.API.Controllers.Business
         {
             var result = await _roomService.GetAllAsync();
 
-            if (result.Succeeded == true)
+            if (result.Succeeded)
             {
                 return Ok(result.Data);
             }
@@ -45,23 +45,25 @@ namespace RoomBooking.API.Controllers.Business
         }
 
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> CreateAsync([FromBody] RoomInputModel model)
         {
             var result = await _roomService.CreateAsync(model);
 
-            if (result.Succeeded == true)
+            if (result.Succeeded)
             {
-                return CreatedAtAction(nameof(GetByIdAsync),result.Data);
+                return CreatedAtAction(nameof(GetByIdAsync), new { id = result.Data.Id }, result.Data);
             }
 
             return MapError(result.ErrorType, result.ErrorMessage);
         }
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateAsync(Guid id,[FromBody] RoomInputModel model)
         {
             var result = await _roomService.UpdateAsync(id,model);
 
-            if (result.Succeeded == true)
+            if (result.Succeeded)
             {
                 return Ok(result.Data);
             }
@@ -70,11 +72,12 @@ namespace RoomBooking.API.Controllers.Business
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteAsync(Guid id)
         {
             var result = await _roomService.DeleteAsync(id);
 
-            if (result.Succeeded == true)
+            if (result.Succeeded)
                 return NoContent();
 
             return MapError(result.ErrorType, result.ErrorMessage);

@@ -1,15 +1,15 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using RoomBooking.API.Controllers.Base;
 using RoomBooking.Application.Abstractions.Services;
 using RoomBooking.Application.DTOs.Booking;
-using RoomBooking.Domain.Enums;
-using System.Net;
 using System.Security.Claims;
 
 namespace RoomBooking.API.Controllers.Business
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class BookingController : BaseApiController
     {
         private readonly IBookingService _bookingService;
@@ -43,6 +43,7 @@ namespace RoomBooking.API.Controllers.Business
 
             return MapError(result.ErrorType, result.ErrorMessage);
         }
+        [Authorize(Roles = "Admin")]
         [HttpGet]
         public async Task<IActionResult> GetAllAsync()
         {    
@@ -63,12 +64,12 @@ namespace RoomBooking.API.Controllers.Business
 
             if (result.Succeeded)
             {
-                return CreatedAtAction(nameof(GetByIdAsync), result.Data);
+                return CreatedAtAction(nameof(GetByIdAsync), new { bookingId = result.Data.Id }, result.Data);
             }
 
             return MapError(result.ErrorType, result.ErrorMessage);
         }
-        [HttpPut("{bookingId}")]
+        [HttpPatch("{bookingId}")]
         public async Task<IActionResult> CancelAsync(Guid bookingId)
         {
             var userId = GetUserId();
