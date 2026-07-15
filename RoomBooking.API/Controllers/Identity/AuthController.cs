@@ -2,6 +2,8 @@
 using RoomBooking.API.Controllers.Base;
 using RoomBooking.Application.Abstractions.Services;
 using RoomBooking.Application.DTOs.Auth;
+using RoomBooking.Domain.Enums;
+using System.Net;
 
 namespace RoomBooking.API.Controllers.Identity
 {
