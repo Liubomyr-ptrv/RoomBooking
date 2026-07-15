@@ -4,7 +4,6 @@ using System.Net;
 
 namespace RoomBooking.API.Controllers.Base
 {
-    [Route("api/[controller]")]
     [ApiController]
     public class BaseApiController : ControllerBase
     {
