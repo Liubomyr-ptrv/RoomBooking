@@ -9,7 +9,7 @@ namespace RoomBooking.Infrastructure.Extensions
     {
         public static IServiceCollection AddIdentityServices(this IServiceCollection services)
         {
-            services.AddIdentityCore<User>(options =>
+            services.AddIdentity<User, IdentityRole<Guid>>(options =>
             {
                 options.Password.RequireDigit = true;
                 options.Password.RequiredLength = 8;
@@ -18,7 +18,8 @@ namespace RoomBooking.Infrastructure.Extensions
                 options.Password.RequireUppercase = false;
                 options.Password.RequireLowercase = false;
                 options.Password.RequiredUniqueChars = 1;
-            })
+                
+            })          
                 .AddEntityFrameworkStores<AppDbContext>()
                 .AddSignInManager()
                 .AddDefaultTokenProviders();

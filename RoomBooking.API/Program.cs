@@ -7,7 +7,6 @@ using RoomBooking.Infrastructure.Db;
 using RoomBooking.Infrastructure.Extensions;
 
 
-
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
@@ -29,7 +28,6 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
@@ -42,6 +40,7 @@ builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddAuthorization();
 
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IRoleService, RoleService>();
 
 var app = builder.Build();
 

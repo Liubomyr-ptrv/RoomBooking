@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using RoomBooking.API.Controllers.Base;
 using RoomBooking.Application.Abstractions.Services;
 using RoomBooking.Application.DTOs.Auth;
 using RoomBooking.Domain.Enums;
@@ -8,7 +9,7 @@ namespace RoomBooking.API.Controllers.Identity
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class AuthController : ControllerBase
+    public class AuthController : BaseApiController
     {
         private readonly IAuthService _authService;
 
@@ -17,44 +18,29 @@ namespace RoomBooking.API.Controllers.Identity
             _authService = authService;
         }
         [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] RegisterModel registerModel)
+        public async Task<IActionResult> RegisterAsync([FromBody] RegisterModel registerModel)
         {
-            var result = await _authService.Register(registerModel);
+            var result = await _authService.RegisterAsync(registerModel);
 
             if(result.Succeeded == true)
             {
                 return Ok( result.Data);
             }
 
-            if (result.ErrorType == ExeptionType.Conflict)
-                return Conflict(result.ErrorMessage);
-            if (result.ErrorType == ExeptionType.Validation)
-                return BadRequest(result.ErrorMessage);
-
-            return BadRequest();
-        
+            return MapError(result.ErrorType, result.ErrorMessage);
         }
 
         [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] LoginModel loginModel)
+        public async Task<IActionResult> LoginAsync([FromBody] LoginModel loginModel)
         {
-            var result = await _authService.Login(loginModel);
+            var result = await _authService.LoginAsync(loginModel);
 
             if (result.Succeeded == true)
             {
                 return Ok(result.Data);
             }
 
-            if (result.ErrorType == ExeptionType.NotFound)
-                return NotFound(result.ErrorMessage);
-
-            if (result.ErrorType == ExeptionType.Forbidden)
-                return StatusCode((int)HttpStatusCode.Forbidden, result.ErrorMessage);
-
-            if (result.ErrorType == ExeptionType.Unauthorized)
-                return Unauthorized(result.ErrorMessage);
-
-            return BadRequest();
+            return MapError(result.ErrorType, result.ErrorMessage);
         }
     }
 }
