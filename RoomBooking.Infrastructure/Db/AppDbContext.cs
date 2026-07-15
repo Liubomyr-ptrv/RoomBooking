@@ -1,8 +1,11 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
+using Npgsql;
 using RoomBooking.Application.Abstractions.Db;
 using RoomBooking.Domain.Entities;
+using System.Data;
 
 namespace RoomBooking.Infrastructure.Db
 {
@@ -11,6 +14,19 @@ namespace RoomBooking.Infrastructure.Db
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
         public DbSet<Room> Rooms { get; set; }
         public DbSet<Booking> Bookings { get; set; }
+
+        public bool IsSerializationFailure(Exception ex)
+        {
+            return ex.InnerException is PostgresException pgEx &&
+                   (pgEx.SqlState == "40001" || pgEx.SqlState == "40P01");
+        }
+
+        public Task<IDbContextTransaction> BeginTransactionAsync(
+                IsolationLevel isolationLevel,
+                CancellationToken cancellationToken = default)
+        {
+            return Database.BeginTransactionAsync(isolationLevel, cancellationToken);
+        }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         { 
@@ -38,6 +54,9 @@ namespace RoomBooking.Infrastructure.Db
             modelBuilder.Entity<User>()
                 .HasIndex(u => u.PhoneNumber)
                 .IsUnique();
+
+            modelBuilder.Entity<Booking>()
+                .HasIndex(b => new { b.RoomId, b.StartTime, b.EndTime });
         }
     }
 }

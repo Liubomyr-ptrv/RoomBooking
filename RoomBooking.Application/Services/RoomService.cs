@@ -29,7 +29,10 @@ namespace RoomBooking.Application.Services
 
         public async Task<Result<List<RoomModel>>> GetAllAsync()
         {
-            var result = await _context.Rooms.AsNoTracking().ToListAsync();
+            var result = await _context.Rooms
+                .AsNoTracking()
+                .Where(x => x.IsActive)   
+                .ToListAsync();
 
             var rooms = Result<List<RoomModel>>.Success(result.Select(MapToDto).ToList());
 
@@ -38,6 +41,10 @@ namespace RoomBooking.Application.Services
 
         public async Task<Result<RoomModel>> CreateAsync(RoomInputModel model)
         {
+            var validationError = ValidateRoomInput(model);
+            if (validationError is not null)
+                return Result<RoomModel>.Failure(validationError, ExeptionType.Validation);
+
             var nameExists = await _context.Rooms
                 .AnyAsync(r => r.Name.ToLower() == model.Name.ToLower());
 
@@ -65,6 +72,10 @@ namespace RoomBooking.Application.Services
 
         public async Task<Result<RoomModel>> UpdateAsync(Guid id, RoomInputModel model)
         {
+            var validationError = ValidateRoomInput(model);
+            if (validationError is not null)
+                return Result<RoomModel>.Failure(validationError, ExeptionType.Validation);
+
             var updateRoom = await _context.Rooms.FirstOrDefaultAsync(r => r.Id == id);
             if (updateRoom is null)
                 return Result<RoomModel>.Failure($"Кімната з id {id} не існує",ExeptionType.NotFound);
@@ -101,6 +112,19 @@ namespace RoomBooking.Application.Services
             var savedRows = await _context.SaveChangesAsync();
 
             return Result<bool>.Success(true);
+        }
+        private static string? ValidateRoomInput(RoomInputModel model)
+        {
+            if (string.IsNullOrWhiteSpace(model.Name))
+                return "Назва кімнати не може бути порожньою.";
+
+            if (model.Capacity <= 0)
+                return "Місткість кімнати має бути більшою за 0.";
+
+            if (model.PricePerHour < 0)
+                return "Ціна за годину не може бути від'ємною.";
+
+            return null;
         }
 
         private static RoomModel MapToDto(Room room)
