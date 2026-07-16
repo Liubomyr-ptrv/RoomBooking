@@ -107,6 +107,17 @@ namespace RoomBooking.Application.Services
             if (!deletedRoom.IsActive)
                 return Result<bool>.Failure("Кімната вже деактивована.", ExeptionType.Conflict);
 
+            var hasActiveBookings = await _context.Bookings.AnyAsync(b =>
+                 b.RoomId == id &&
+                 b.Status != BookingStatus.Cancelled &&
+                 b.EndTime > DateTime.UtcNow);
+
+            if (hasActiveBookings)
+                return Result<bool>.Failure(
+                    "Неможливо деактивувати кімнату, поки на неї є активні бронювання.",
+                    ExeptionType.Conflict);
+                    
+
             deletedRoom.IsActive = false;
 
             var savedRows = await _context.SaveChangesAsync();

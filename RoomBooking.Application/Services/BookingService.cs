@@ -12,6 +12,7 @@ namespace RoomBooking.Application.Services
     public class BookingService : IBookingService
     {
         private readonly IAppDbContext _context;
+        private static readonly TimeSpan MaxBookingDuration = TimeSpan.FromDays(7);
         public BookingService(IAppDbContext context)
         {
             _context = context;
@@ -188,7 +189,10 @@ namespace RoomBooking.Application.Services
                 return "Неможливо створити бронювання в минулому.";
 
             if (model.StartTime >= model.EndTime)
-                return "Час завершення має бути пізніше за час початку.";
+                return "Час завершення має бути пізніше за час початку.";     
+
+            if (model.EndTime - model.StartTime > MaxBookingDuration)
+                return $"Максимальна тривалість бронювання — {MaxBookingDuration.TotalDays:0} днів.";
 
             return null;
         }
