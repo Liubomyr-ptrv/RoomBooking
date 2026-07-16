@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
+using RoomBooking.Application.Abstractions.Db;
 using RoomBooking.Application.Abstractions.Services;
 using RoomBooking.Application.Services;
 using RoomBooking.Application.Settings;
@@ -30,6 +31,8 @@ builder.Services.AddSwaggerGen(c =>
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddScoped<IAppDbContext>(provider => provider.GetRequiredService<AppDbContext>());
 
 builder.Services.AddIdentityServices();
 

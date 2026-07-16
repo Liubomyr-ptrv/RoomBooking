@@ -52,7 +52,7 @@ namespace RoomBooking.API.Controllers.Business
 
             if (result.Succeeded)
             {
-                return CreatedAtAction(nameof(GetByIdAsync), new { id = result.Data.Id }, result.Data);
+                return CreatedAtAction("GetById", new { id = result.Data.Id }, result.Data);
             }
 
             return MapError(result.ErrorType, result.ErrorMessage);

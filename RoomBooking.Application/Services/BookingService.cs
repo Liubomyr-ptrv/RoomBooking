@@ -134,13 +134,15 @@ namespace RoomBooking.Application.Services
 
             return Result<BookingModel>.Success(MapToDto(booking));
         }
-        public async Task<Result<bool>> CancelBookingAsync(Guid bookingId, Guid userId)
+        public async Task<Result<bool>> CancelBookingAsync(Guid bookingId, Guid userId, bool isAdmin)
         {
-            var result = await _context.Bookings.FirstOrDefaultAsync(x => x.Id == bookingId && x.UserId == userId);
+            var result = isAdmin
+                    ? await _context.Bookings.FirstOrDefaultAsync(x => x.Id == bookingId)
+                    : await _context.Bookings.FirstOrDefaultAsync(x => x.Id == bookingId && x.UserId == userId);
 
             if (result is null)
             {
-                return Result<bool>.Failure($"Бронювання з id {bookingId} не знайдено у даного користувача!", ExeptionType.NotFound);
+                return Result<bool>.Failure($"Бронювання з id {bookingId} не знайдено.", ExeptionType.NotFound);
             }
 
             if (result.Status == BookingStatus.Cancelled)
