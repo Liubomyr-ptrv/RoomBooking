@@ -9,7 +9,6 @@
         public int Capacity { get; set; }
         public string[] Equipment { get; set; }
         public decimal PricePerHour { get; set; }
-        public bool IsBooked { get; set; }
         public bool IsActive { get; set; }
     }
 }

@@ -60,7 +60,6 @@ namespace RoomBooking.Application.Services
                 Capacity = model.Capacity,
                 Equipment = model.Equipment,
                 PricePerHour = model.PricePerHour,
-                IsBooked = false,
                 IsActive = true
             };
 
@@ -149,7 +148,6 @@ namespace RoomBooking.Application.Services
                 Capacity = room.Capacity,
                 Equipment = room.Equipment,
                 PricePerHour = room.PricePerHour,
-                IsBooked = room.IsBooked,
                 IsActive = room.IsActive
             };
         }

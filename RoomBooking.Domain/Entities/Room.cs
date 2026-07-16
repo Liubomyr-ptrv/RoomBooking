@@ -9,7 +9,6 @@
         public required int Capacity { get; set; }
         public string[] Equipment { get; set; }
         public required decimal PricePerHour { get; set; }
-        public bool IsBooked { get; set; }
         public bool IsActive { get; set; } = true;
 
         public ICollection<Booking> Bookings { get; set; } = new List<Booking>();
