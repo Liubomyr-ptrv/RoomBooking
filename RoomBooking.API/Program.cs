@@ -6,6 +6,7 @@ using RoomBooking.Application.Services;
 using RoomBooking.Application.Settings;
 using RoomBooking.Infrastructure.Db;
 using RoomBooking.Infrastructure.Extensions;
+using StackExchange.Redis;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -41,6 +42,14 @@ builder.Services.AddOptions<JwtConfigurationOptions>()
 
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddAuthorization();
+
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = builder.Configuration.GetConnectionString("Redis");
+});
+
+builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
+    ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("Redis")!));
 
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
