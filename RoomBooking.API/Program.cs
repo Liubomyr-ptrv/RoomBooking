@@ -41,6 +41,8 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
+builder.Services.AddScoped<IRoomService, RoomService>();
+builder.Services.AddScoped<IBookingService, BookingService>();
 
 var app = builder.Build();
 
