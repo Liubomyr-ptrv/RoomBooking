@@ -12,9 +12,12 @@ namespace RoomBooking.Application.Services
     public class BookingService : IBookingService
     {
         private readonly IAppDbContext _context;
-        public BookingService(IAppDbContext context)
+        private readonly IRoomService _roomService;
+        private static readonly TimeSpan MaxBookingDuration = TimeSpan.FromDays(7);
+        public BookingService(IAppDbContext context, IRoomService roomService)
         {
             _context = context;
+            _roomService = roomService;
         }
         public async Task<Result<BookingModel>> GetByIdAsync(Guid bookingId, Guid userId)
         {
@@ -121,8 +124,10 @@ namespace RoomBooking.Application.Services
 
                 _context.Bookings.Add(booking);
                 await _context.SaveChangesAsync();
-
                 await transaction.CommitAsync();
+
+                await _roomService.InvalidateAvailabilityCacheAsync(booking.RoomId);
+
             }
             catch (DbUpdateException ex) when (_context.IsSerializationFailure(ex))
             {
@@ -134,13 +139,15 @@ namespace RoomBooking.Application.Services
 
             return Result<BookingModel>.Success(MapToDto(booking));
         }
-        public async Task<Result<bool>> CancelBookingAsync(Guid bookingId, Guid userId)
+        public async Task<Result<bool>> CancelBookingAsync(Guid bookingId, Guid userId, bool isAdmin)
         {
-            var result = await _context.Bookings.FirstOrDefaultAsync(x => x.Id == bookingId && x.UserId == userId);
+            var result = isAdmin
+                    ? await _context.Bookings.FirstOrDefaultAsync(x => x.Id == bookingId)
+                    : await _context.Bookings.FirstOrDefaultAsync(x => x.Id == bookingId && x.UserId == userId);
 
             if (result is null)
             {
-                return Result<bool>.Failure($"Бронювання з id {bookingId} не знайдено у даного користувача!", ExeptionType.NotFound);
+                return Result<bool>.Failure($"Бронювання з id {bookingId} не знайдено.", ExeptionType.NotFound);
             }
 
             if (result.Status == BookingStatus.Cancelled)
@@ -155,6 +162,8 @@ namespace RoomBooking.Application.Services
 
             result.Status = BookingStatus.Cancelled;
             await _context.SaveChangesAsync();
+
+            await _roomService.InvalidateAvailabilityCacheAsync(result.RoomId);
 
             return Result<bool>.Success(true);
 
@@ -186,7 +195,10 @@ namespace RoomBooking.Application.Services
                 return "Неможливо створити бронювання в минулому.";
 
             if (model.StartTime >= model.EndTime)
-                return "Час завершення має бути пізніше за час початку.";
+                return "Час завершення має бути пізніше за час початку.";     
+
+            if (model.EndTime - model.StartTime > MaxBookingDuration)
+                return $"Максимальна тривалість бронювання — {MaxBookingDuration.TotalDays:0} днів.";
 
             return null;
         }

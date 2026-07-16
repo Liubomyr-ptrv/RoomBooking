@@ -43,6 +43,19 @@ namespace RoomBooking.API.Controllers.Business
 
             return MapError(result.ErrorType, result.ErrorMessage);
         }
+        [HttpGet("{id}/availability")]
+        public async Task<IActionResult> GetAvailabilityAsync(
+                  Guid id, [FromQuery] DateTime dateFrom, [FromQuery] DateTime dateTo)
+        {
+            var result = await _roomService.GetAvailabilityAsync(id, dateFrom, dateTo);
+
+            if (result.Succeeded)
+            {
+                return Ok(result.Data);
+            }
+
+            return MapError(result.ErrorType, result.ErrorMessage);
+        }
 
         [HttpPost]
         [Authorize(Roles = "Admin")]
@@ -52,7 +65,7 @@ namespace RoomBooking.API.Controllers.Business
 
             if (result.Succeeded)
             {
-                return CreatedAtAction(nameof(GetByIdAsync), new { id = result.Data.Id }, result.Data);
+                return CreatedAtAction("GetById", new { id = result.Data.Id }, result.Data);
             }
 
             return MapError(result.ErrorType, result.ErrorMessage);

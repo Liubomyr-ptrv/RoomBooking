@@ -64,7 +64,7 @@ namespace RoomBooking.API.Controllers.Business
 
             if (result.Succeeded)
             {
-                return CreatedAtAction(nameof(GetByIdAsync), new { bookingId = result.Data.Id }, result.Data);
+                return CreatedAtAction("GetById", new { bookingId = result.Data.Id }, result.Data);
             }
 
             return MapError(result.ErrorType, result.ErrorMessage);
@@ -73,7 +73,9 @@ namespace RoomBooking.API.Controllers.Business
         public async Task<IActionResult> CancelAsync(Guid bookingId)
         {
             var userId = GetUserId();
-            var result = await _bookingService.CancelBookingAsync(bookingId, userId);
+            var isAdmin = User.IsInRole("Admin");
+
+            var result = await _bookingService.CancelBookingAsync(bookingId, userId, isAdmin);
 
             if (result.Succeeded)
             {
