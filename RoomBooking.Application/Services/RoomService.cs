@@ -57,21 +57,11 @@ namespace RoomBooking.Application.Services
 
             var cacheKey = $"room-availability:{roomId}:{dateFrom:yyyy-MM-ddTHH-mm}:{dateTo:yyyy-MM-ddTHH-mm}";
 
-            var cached = await _cache.GetStringAsync(cacheKey);
-            if (cached is not null)
+
+            var cachedSlots = await TryGetFromCacheAsync(cacheKey);
+            if (cachedSlots is not null)
             {
-                try
-                {
-                    var cachedSlots = JsonSerializer.Deserialize<List<TimeSlotModel>>(cached);
-                    if (cachedSlots is not null)
-                    {
-                        return Result<List<TimeSlotModel>>.Success(cachedSlots);
-                    }
-                }
-                catch (JsonException)
-                {
-                   
-                }
+                return Result<List<TimeSlotModel>>.Success(cachedSlots);
             }
 
             var room = await _context.Rooms.AsNoTracking().FirstOrDefaultAsync(x => x.Id == roomId);
@@ -95,10 +85,7 @@ namespace RoomBooking.Application.Services
                 })
                 .ToListAsync();
 
-            await _cache.SetStringAsync(
-                    cacheKey,
-                    JsonSerializer.Serialize(bookings),
-                    new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5) });
+            await TrySetCacheAsync(cacheKey, bookings);
 
             return Result<List<TimeSlotModel>>.Success(bookings);
         }
@@ -197,17 +184,52 @@ namespace RoomBooking.Application.Services
                 foreach (var endpoint in _redis.GetEndPoints())
                 {
                     var server = _redis.GetServer(endpoint);
-                    if (server.IsReplica) continue; 
+
+                    if (server.IsReplica)
+                        continue;
+
+                    var keysToDelete = new List<RedisKey>();
 
                     await foreach (var key in server.KeysAsync(pattern: pattern))
-                    {           
-                        await db.KeyDeleteAsync(key);
+                    {
+                        keysToDelete.Add(key);
+                    }
+
+                    if (keysToDelete.Count > 0)
+                    {
+                        await db.KeyDeleteAsync(keysToDelete.ToArray());
                     }
                 }
             }
-            catch (Exception)
+            catch
+            {
+                
+            }
+        }
+        private async Task TrySetCacheAsync(string cacheKey, List<TimeSlotModel> slots)
+        {
+            try
+            {
+                await _cache.SetStringAsync(
+                    cacheKey,
+                    JsonSerializer.Serialize(slots),
+                    new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5) });
+            }
+            catch
             {
              
+            }
+        }
+        private async Task<List<TimeSlotModel>?> TryGetFromCacheAsync(string cacheKey)
+        {
+            try
+            {
+                var cached = await _cache.GetStringAsync(cacheKey);
+                return cached is null ? null : JsonSerializer.Deserialize<List<TimeSlotModel>>(cached);
+            }
+            catch
+            {
+                return null;
             }
         }
         private static string? TimeValidation(DateTime dateFrom, DateTime dateTo)
