@@ -66,6 +66,10 @@ try
     builder.Services.AddScoped<IRoomService, RoomService>();
     builder.Services.AddScoped<IBookingService, BookingService>();
 
+    builder.Services.AddHealthChecks()
+            .AddDbContextCheck<AppDbContext>()
+            .AddRedis(builder.Configuration.GetConnectionString("Redis")!);
+
     var app = builder.Build();
 
     if (app.Environment.IsDevelopment())
@@ -80,6 +84,8 @@ try
     app.UseAuthorization();
 
     app.MapControllers();
+
+    app.MapHealthChecks("/health");
 
     app.Run();
 }
