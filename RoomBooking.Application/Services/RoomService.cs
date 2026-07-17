@@ -181,13 +181,9 @@ namespace RoomBooking.Application.Services
             room.IsActive = isActive;
 
             await _context.SaveChangesAsync();
-            await InvalidateAvailabilityCacheAsync(id);
+            await _availabilityCache.InvalidateAsync(id);
 
             return Result<bool>.Success(true);
-        }
-        public async Task InvalidateAvailabilityCacheAsync(Guid roomId)
-        {
-            await _availabilityCache.InvalidateAsync(roomId);
         }
         private static string? TimeValidation(DateTime dateFrom, DateTime dateTo)
         {
