@@ -18,7 +18,7 @@ namespace RoomBooking.Infrastructure.Services.Caching
         {
             try
             {
-                var cached = await _cache.GetStringAsync(roomId);
+                var cached = await _cache.GetStringAsync(GetCacheKey(roomId));
                 return cached is null ? null : JsonSerializer.Deserialize<List<TimeSlotModel>>(cached);
             }
             catch
