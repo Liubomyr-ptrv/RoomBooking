@@ -28,7 +28,7 @@ namespace RoomBooking.Application.Services
             var result = await _context.Rooms.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
             if (result is null)
             {
-                return Result<RoomModel>.Failure($"Кімнату з id {id} не знайдено.", ExeptionType.NotFound);
+                return Result<RoomModel>.Failure($"Кімнату з id {id} не знайдено.", ErrorType.NotFound);
             }
             var room = MapToDto(result);
 
@@ -51,7 +51,7 @@ namespace RoomBooking.Application.Services
             var timeValidation = TimeValidation(dateFrom, dateTo);
             if (timeValidation is not null)
             {
-                return Result<List<TimeSlotModel>>.Failure(timeValidation, ExeptionType.Validation);
+                return Result<List<TimeSlotModel>>.Failure(timeValidation, ErrorType.Validation);
             }
 
             var cacheKey = $"room-availability:{roomId}:{dateFrom:yyyy-MM-ddTHH-mm}:{dateTo:yyyy-MM-ddTHH-mm}";
@@ -65,7 +65,7 @@ namespace RoomBooking.Application.Services
             var room = await _context.Rooms.AsNoTracking().FirstOrDefaultAsync(x => x.Id == roomId);
             if (room is null)
             {
-                return Result<List<TimeSlotModel>>.Failure("Кімнату не знайдено.", ExeptionType.NotFound);
+                return Result<List<TimeSlotModel>>.Failure("Кімнату не знайдено.", ErrorType.NotFound);
             }
 
             var bookings = await _context.Bookings
@@ -91,13 +91,13 @@ namespace RoomBooking.Application.Services
         {
             var validationError = ValidateRoomInput(model);
             if (validationError is not null)
-                return Result<RoomModel>.Failure(validationError, ExeptionType.Validation);
+                return Result<RoomModel>.Failure(validationError, ErrorType.Validation);
 
             var nameExists = await _context.Rooms
                 .AnyAsync(r => r.Name.ToLower() == model.Name.ToLower());
 
             if (nameExists)
-                return Result<RoomModel>.Failure( $"Кімната з назвою '{model.Name}' вже існує.", ExeptionType.Conflict);
+                return Result<RoomModel>.Failure( $"Кімната з назвою '{model.Name}' вже існує.", ErrorType.Conflict);
 
             var room = new Room
             {
@@ -121,17 +121,17 @@ namespace RoomBooking.Application.Services
         {
             var validationError = ValidateRoomInput(model);
             if (validationError is not null)
-                return Result<RoomModel>.Failure(validationError, ExeptionType.Validation);
+                return Result<RoomModel>.Failure(validationError, ErrorType.Validation);
 
             var updateRoom = await _context.Rooms.FirstOrDefaultAsync(r => r.Id == id);
             if (updateRoom is null)
-                return Result<RoomModel>.Failure($"Кімната з id {id} не існує",ExeptionType.NotFound);
+                return Result<RoomModel>.Failure($"Кімната з id {id} не існує",ErrorType.NotFound);
 
             var nameTaken = await _context.Rooms
                 .AnyAsync(r => r.Id != id && r.Name.ToLower() == model.Name.ToLower());
 
             if (nameTaken)
-                return Result<RoomModel>.Failure( $"Кімната з назвою '{model.Name}' вже існує.",  ExeptionType.Conflict);
+                return Result<RoomModel>.Failure( $"Кімната з назвою '{model.Name}' вже існує.",  ErrorType.Conflict);
 
             updateRoom.Name = model.Name;
             updateRoom.Description = model.Description ?? string.Empty;
@@ -149,10 +149,10 @@ namespace RoomBooking.Application.Services
         {
             var deletedRoom = await _context.Rooms.FirstOrDefaultAsync(r => r.Id == id);
             if (deletedRoom is null)
-                return Result<bool>.Failure("Кімнату не знайдено", ExeptionType.NotFound);
+                return Result<bool>.Failure("Кімнату не знайдено", ErrorType.NotFound);
 
             if (!deletedRoom.IsActive)
-                return Result<bool>.Failure("Кімната вже деактивована.", ExeptionType.Conflict);
+                return Result<bool>.Failure("Кімната вже деактивована.", ErrorType.Conflict);
 
             var hasActiveBookings = await _context.Bookings.AnyAsync(b =>
                  b.RoomId == id &&
@@ -162,7 +162,7 @@ namespace RoomBooking.Application.Services
             if (hasActiveBookings)
                 return Result<bool>.Failure(
                     "Неможливо деактивувати кімнату, поки на неї є активні бронювання.",
-                    ExeptionType.Conflict);
+                    ErrorType.Conflict);
                     
 
             deletedRoom.IsActive = false;
@@ -175,6 +175,18 @@ namespace RoomBooking.Application.Services
         public async Task InvalidateAvailabilityCacheAsync(Guid roomId)
         {
             await _availabilityCache.InvalidateAsync(roomId);
+        }
+        private async Task<List<TimeSlotModel>?> TryGetFromCacheAsync(string cacheKey)
+        {
+            try
+            {
+                var cached = await _cache.GetStringAsync(cacheKey);
+                return cached is null ? null : JsonSerializer.Deserialize<List<TimeSlotModel>>(cached);
+            }
+            catch
+            {
+                return null;
+            }
         }
         private static string? TimeValidation(DateTime dateFrom, DateTime dateTo)
         {

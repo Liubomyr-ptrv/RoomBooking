@@ -31,16 +31,16 @@ namespace RoomBooking.Application.Services
         {
             var existing = await _userManager.FindByEmailAsync(dto.Email);
             if (existing is null)
-                return Result<string>.Failure($"Користувача з email '{dto.Email}' не знайдено.", ExeptionType.NotFound);
+                return Result<string>.Failure($"Користувача з email '{dto.Email}' не знайдено.", ErrorType.NotFound);
 
             var signInResult = await _signInManager.CheckPasswordSignInAsync(existing, dto.Password, lockoutOnFailure: true);
 
             if (signInResult.IsLockedOut)
-                return Result<string>.Failure("Акаунт тимчасово заблоковано через забагато невдалих спроб.", ExeptionType.Forbidden);
+                return Result<string>.Failure("Акаунт тимчасово заблоковано через забагато невдалих спроб.", ErrorType.Forbidden);
 
 
             if (!signInResult.Succeeded)
-                return Result<string>.Failure("Невірний email або пароль.", ExeptionType.Validation);
+                return Result<string>.Failure("Невірний email або пароль.", ErrorType.Validation);
 
             var token = await GenerateJwtTokenAsync(existing);
 
@@ -51,7 +51,7 @@ namespace RoomBooking.Application.Services
         {
             var existing = await _userManager.FindByEmailAsync(model.Email);
             if (existing is not null)
-                return Result<string>.Failure($"Користувач з email '{model.Email}' вже існує.", ExeptionType.Conflict);
+                return Result<string>.Failure($"Користувач з email '{model.Email}' вже існує.", ErrorType.Conflict);
 
             var user = new User
             {
@@ -72,7 +72,7 @@ namespace RoomBooking.Application.Services
             var roleResult = await _userManager.AddToRoleAsync(user, nameof(UserRole.Client));
             if (!roleResult.Succeeded)
             {
-                return Result<string>.Failure("Не вдалось призначити роль користувачу.",ExeptionType.InternalServerError);
+                return Result<string>.Failure("Не вдалось призначити роль користувачу.",ErrorType.InternalServerError);
             }
 
             var token = await GenerateJwtTokenAsync(user);
@@ -84,16 +84,16 @@ namespace RoomBooking.Application.Services
             var errorList = errors.ToList();
             if (errorList.Any(c => c.Code.Contains("Password")))
             {
-                return Result<string>.Failure("Пароль не відповідає вимогам безпеки: мінімум 8 символів.", ExeptionType.Validation);
+                return Result<string>.Failure("Пароль не відповідає вимогам безпеки: мінімум 8 символів.", ErrorType.Validation);
             }
             if (errorList.Any(c => c.Code.Contains("Email")))
             {
-                return Result<string>.Failure("Некоректний формат email.", ExeptionType.Validation);
+                return Result<string>.Failure("Некоректний формат email.", ErrorType.Validation);
             }
 
             return Result<string>.Failure(
                string.Join("; ", errorList.Select(e => e.Description)),
-               ExeptionType.InternalServerError);
+               ErrorType.InternalServerError);
         }
         private async Task<string> GenerateJwtTokenAsync(User user)
         {
