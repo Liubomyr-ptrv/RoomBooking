@@ -17,6 +17,7 @@ namespace RoomBooking.Application.Services
         private readonly IDistributedCache _cache;
         private readonly IConnectionMultiplexer _redis;
         private static readonly int MaxAvailabilityRangeDays = 31;
+        private static readonly int AvailabilityCacheDurationMinutes = 5;
 
         public RoomService(IAppDbContext context, IDistributedCache cache, IConnectionMultiplexer redis)
         {
@@ -213,7 +214,7 @@ namespace RoomBooking.Application.Services
                 await _cache.SetStringAsync(
                     cacheKey,
                     JsonSerializer.Serialize(slots),
-                    new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5) });
+                    new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(AvailabilityCacheDurationMinutes) });
             }
             catch
             {
