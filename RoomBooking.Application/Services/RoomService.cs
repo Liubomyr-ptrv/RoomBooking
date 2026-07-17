@@ -25,7 +25,7 @@ namespace RoomBooking.Application.Services
         }
         public async Task<Result<RoomModel>> GetByIdAsync(Guid id)
         {
-            var result = await _context.Rooms.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+            var result = await _context.Rooms.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id && x.IsActive);
             if (result is null)
             {
                 return Result<RoomModel>.Failure($"Кімнату з id {id} не знайдено.", ErrorType.NotFound);
@@ -35,16 +35,25 @@ namespace RoomBooking.Application.Services
             return Result<RoomModel>.Success(room);
         }
 
-        public async Task<Result<List<RoomListModel>>> GetAllAsync()
+        public async Task<Result<List<RoomModel>>> GetAllAsync()
         {
             var result = await _context.Rooms
                 .AsNoTracking()
                 .Where(x => x.IsActive)   
                 .ToListAsync();
 
-            var rooms = Result<List<RoomListModel>>.Success(result.Select(MapToListDto).ToList());
+            var rooms = Result<List<RoomModel>>.Success(result.Select(MapToDto).ToList());
 
             return rooms;
+        }
+        public async Task<Result<List<RoomModel>>> GetDeactivatedAsync()
+        {
+            var result = await _context.Rooms
+                .AsNoTracking()
+                .Where(x => !x.IsActive)
+                .ToListAsync();
+
+            return Result<List<RoomModel>>.Success(result.Select(MapToDto).ToList());
         }
         public async Task<Result<List<TimeSlotModel>>> GetAvailabilityAsync(Guid roomId, DateTime dateFrom, DateTime dateTo)
         {
@@ -139,36 +148,41 @@ namespace RoomBooking.Application.Services
             updateRoom.Capacity = model.Capacity;
             updateRoom.Equipment = model.Equipment;
             updateRoom.PricePerHour = model.PricePerHour;
+
             
             await _context.SaveChangesAsync();
 
             return Result<RoomModel>.Success(MapToDto(updateRoom));
         }
-
-        public async Task<Result<bool>> DeleteAsync(Guid id)
+        public async Task<Result<bool>> SetStatusAsync(Guid id, bool isActive)
         {
-            var deletedRoom = await _context.Rooms.FirstOrDefaultAsync(r => r.Id == id);
-            if (deletedRoom is null)
-                return Result<bool>.Failure("Кімнату не знайдено", ErrorType.NotFound);
+            var room = await _context.Rooms.FirstOrDefaultAsync(r => r.Id == id);
+            if (room is null)
+                return Result<bool>.Failure("Кімнату не знайдено", ExeptionType.NotFound);
 
-            if (!deletedRoom.IsActive)
-                return Result<bool>.Failure("Кімната вже деактивована.", ErrorType.Conflict);
+            if (room.IsActive == isActive)
+            {
+                var message = isActive ? "Кімната вже активна." : "Кімната вже деактивована.";
+                return Result<bool>.Failure(message, ExeptionType.Conflict);
+            }
 
-            var hasActiveBookings = await _context.Bookings.AnyAsync(b =>
-                 b.RoomId == id &&
-                 b.Status != BookingStatus.Cancelled &&
-                 b.EndTime > DateTime.UtcNow);
+            if (!isActive)
+            {
+                var hasActiveBookings = await _context.Bookings.AnyAsync(b =>
+                     b.RoomId == id &&
+                     b.Status != BookingStatus.Cancelled &&
+                     b.EndTime > DateTime.UtcNow);
 
-            if (hasActiveBookings)
-                return Result<bool>.Failure(
-                    "Неможливо деактивувати кімнату, поки на неї є активні бронювання.",
-                    ErrorType.Conflict);
-                    
+                if (hasActiveBookings)
+                    return Result<bool>.Failure(
+                        "Неможливо деактивувати кімнату, поки на неї є активні бронювання.",
+                        ExeptionType.Conflict);
+            }
 
-            deletedRoom.IsActive = false;
+            room.IsActive = isActive;
 
-             await _context.SaveChangesAsync();
-               await InvalidateAvailabilityCacheAsync(id);
+            await _context.SaveChangesAsync();
+            await InvalidateAvailabilityCacheAsync(id);
 
             return Result<bool>.Success(true);
         }
@@ -232,20 +246,7 @@ namespace RoomBooking.Application.Services
                 Capacity = room.Capacity,
                 Equipment = room.Equipment,
                 PricePerHour = room.PricePerHour,    
-            };
-        }
-        private static RoomListModel MapToListDto(Room room)
-        {
-            return new RoomListModel
-            {
-                Id = room.Id,
-                Name = room.Name,
-                Description = room.Description,
-                Location = room.Location,
-                Capacity = room.Capacity,
-                Equipment = room.Equipment,
-                PricePerHour = room.PricePerHour,
-                IsActive = room.IsActive
+                IsActive = room.IsActive,
             };
         }
     }
