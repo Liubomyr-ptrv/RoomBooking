@@ -34,7 +34,6 @@ namespace RoomBooking.Infrastructure.Services.Caching
                     GetCacheKey(roomId),
                     JsonSerializer.Serialize(slots),
                     new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = ttl });
-        
            }
             catch
             {

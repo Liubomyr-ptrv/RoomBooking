@@ -44,12 +44,14 @@ builder.Services.AddOptions<JwtConfigurationOptions>()
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddAuthorization();
 
+
+var redisConnectionString = builder.Configuration.GetConnectionString("Redis")!;
+
 builder.Services.AddStackExchangeRedisCache(options =>
 {
-    options.Configuration = builder.Configuration.GetConnectionString("Redis");
+    options.Configuration = $"{redisConnectionString},abortConnect=false";
 });
-builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
-    ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("Redis")!));
+
 builder.Services.AddScoped<IAvailabilityCacheService, RedisAvailabilityCacheService>();
 
 builder.Services.AddScoped<IAuthService, AuthService>();
