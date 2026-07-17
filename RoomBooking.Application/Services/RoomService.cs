@@ -63,38 +63,40 @@ namespace RoomBooking.Application.Services
                 return Result<List<TimeSlotModel>>.Failure(timeValidation, ErrorType.Validation);
             }
 
-            var cacheKey = $"room-availability:{roomId}:{dateFrom:yyyy-MM-ddTHH-mm}:{dateTo:yyyy-MM-ddTHH-mm}";
+            var allBookings = await _availabilityCache.GetAsync(roomId);
 
-            var cachedSlots = await _availabilityCache.GetAsync(cacheKey);
-            if (cachedSlots is not null)
+            if (allBookings is null)
             {
-                return Result<List<TimeSlotModel>>.Success(cachedSlots);
-            }
-
-            var room = await _context.Rooms.AsNoTracking().FirstOrDefaultAsync(x => x.Id == roomId && x.IsActive);
-            if (room is null)
-            {
-                return Result<List<TimeSlotModel>>.Failure("Кімнату не знайдено.", ErrorType.NotFound);
-            }
-
-            var bookings = await _context.Bookings
-                .AsNoTracking()
-                .Where(x => x.RoomId == roomId
-                          && x.Status != BookingStatus.Cancelled
-                          && x.StartTime < dateTo
-                          && x.EndTime > dateFrom)
-                .OrderBy(b => b.StartTime)
-                .Select(b => new TimeSlotModel
+                var room = await _context.Rooms.AsNoTracking().FirstOrDefaultAsync(x => x.Id == roomId && x.IsActive);
+                if (room is null)
                 {
-                    StartTime = b.StartTime,
-                    EndTime = b.EndTime,
-                    IsBooked = true
-                })
-                .ToListAsync();
+                    return Result<List<TimeSlotModel>>.Failure("Кімнату не знайдено.", ErrorType.NotFound);
+                }
 
-            await _availabilityCache.SetAsync(roomId, cacheKey, bookings, AvailabilityCacheTtl);
+                var horizonEnd = DateTime.UtcNow.Date.AddDays(MaxAvailabilityRangeDays);
 
-            return Result<List<TimeSlotModel>>.Success(bookings);
+                allBookings = await _context.Bookings
+                    .AsNoTracking()
+                    .Where(x => x.RoomId == roomId
+                              && x.Status != BookingStatus.Cancelled
+                              && x.StartTime < horizonEnd)
+                    .OrderBy(b => b.StartTime)
+                    .Select(b => new TimeSlotModel
+                    {
+                        StartTime = b.StartTime,
+                        EndTime = b.EndTime,
+                        IsBooked = true
+                    })
+                    .ToListAsync();
+
+                await _availabilityCache.SetAsync(roomId, allBookings, AvailabilityCacheTtl);
+            }
+
+            var filtered = allBookings
+                .Where(b => b.StartTime < dateTo && b.EndTime > dateFrom)
+                .ToList();
+
+            return Result<List<TimeSlotModel>>.Success(filtered);
         }
         public async Task<Result<RoomModel>> CreateAsync(RoomInputModel model)
         {
