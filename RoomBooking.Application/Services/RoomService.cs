@@ -1,13 +1,10 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Distributed;
 using RoomBooking.Application.Abstractions.Db;
 using RoomBooking.Application.Abstractions.Services;
 using RoomBooking.Application.Common;
 using RoomBooking.Application.DTOs.Room;
 using RoomBooking.Domain.Entities;
 using RoomBooking.Domain.Enums;
-
-using System.Text.Json;
 
 namespace RoomBooking.Application.Services
 {
@@ -208,6 +205,11 @@ namespace RoomBooking.Application.Services
 
             if ((dateTo - dateFrom).TotalDays > MaxAvailabilityRangeDays)
                 return $"Максимальний період перегляду доступності — {MaxAvailabilityRangeDays} днів.";
+
+            var horizonEnd = DateTime.UtcNow.Date.AddDays(MaxAvailabilityRangeDays);
+
+            if (dateTo > horizonEnd)
+                return $"Дата завершення не може перевищувати {MaxAvailabilityRangeDays} днів від поточного моменту.";
 
             return null;
         }
