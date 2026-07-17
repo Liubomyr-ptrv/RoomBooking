@@ -27,7 +27,7 @@ namespace RoomBooking.Application.Services
 
             if (result is null)
             {
-                return Result<BookingModel>.Failure($"Бронювання з id {bookingId} не знайдено у даного користувача!", ExeptionType.NotFound);
+                return Result<BookingModel>.Failure($"Бронювання з id {bookingId} не знайдено у даного користувача!", ErrorType.NotFound);
             }
 
             return Result<BookingModel>.Success(MapToDto(result));
@@ -78,12 +78,12 @@ namespace RoomBooking.Application.Services
             var validationError = BookingTimeValidation(model);
             if (validationError is not null)
             {
-                return Result<BookingModel>.Failure(validationError, ExeptionType.Validation);
+                return Result<BookingModel>.Failure(validationError, ErrorType.Validation);
             }
 
             if (model.AttendeesCount <= 0)
             {
-                return Result<BookingModel>.Failure("Кількість учасників має бути більшою за нуль.", ExeptionType.Validation);
+                return Result<BookingModel>.Failure("Кількість учасників має бути більшою за нуль.", ErrorType.Validation);
             }
 
             var room = await _context.Rooms.AsNoTracking().FirstOrDefaultAsync(x => x.Id == model.RoomId);
@@ -119,7 +119,7 @@ namespace RoomBooking.Application.Services
                 if (hasOverlap)
                 {
                     await transaction.RollbackAsync();
-                    return Result<BookingModel>.Failure("Кімната вже заброньована на цей час.", ExeptionType.Conflict);
+                    return Result<BookingModel>.Failure("Кімната вже заброньована на цей час.", ErrorType.Conflict);
                 }
 
                 _context.Bookings.Add(booking);
@@ -134,7 +134,7 @@ namespace RoomBooking.Application.Services
                 await transaction.RollbackAsync();
                 return Result<BookingModel>.Failure(
                     "Хтось щойно забронював цей час. Спробуйте, будь ласка, інший слот.",
-                    ExeptionType.Conflict);
+                    ErrorType.Conflict);
             }
 
             return Result<BookingModel>.Success(MapToDto(booking));
@@ -147,17 +147,17 @@ namespace RoomBooking.Application.Services
 
             if (result is null)
             {
-                return Result<bool>.Failure($"Бронювання з id {bookingId} не знайдено.", ExeptionType.NotFound);
+                return Result<bool>.Failure($"Бронювання з id {bookingId} не знайдено.", ErrorType.NotFound);
             }
 
             if (result.Status == BookingStatus.Cancelled)
             {
-                return Result<bool>.Failure("Бронювання вже скасоване.", ExeptionType.Conflict);
+                return Result<bool>.Failure("Бронювання вже скасоване.", ErrorType.Conflict);
             }
 
             if (result.StartTime <= DateTime.UtcNow)
             {
-                return Result<bool>.Failure("Неможливо скасувати бронювання, яке вже розпочалося або завершилося.", ExeptionType.Conflict);
+                return Result<bool>.Failure("Неможливо скасувати бронювання, яке вже розпочалося або завершилося.", ErrorType.Conflict);
             }
 
             result.Status = BookingStatus.Cancelled;
@@ -179,13 +179,13 @@ namespace RoomBooking.Application.Services
         private static Result<Room> ValidateRoom(Room? room, int attendeesCount)
         {
             if (room is null)
-                return Result<Room>.Failure("Кімнату не знайдено", ExeptionType.NotFound);
+                return Result<Room>.Failure("Кімнату не знайдено", ErrorType.NotFound);
 
             if (!room.IsActive)
-                return Result<Room>.Failure("Ця кімната наразі недоступна для бронювання.", ExeptionType.Conflict);
+                return Result<Room>.Failure("Ця кімната наразі недоступна для бронювання.", ErrorType.Conflict);
 
             if (attendeesCount > room.Capacity)
-                return Result<Room>.Failure($"Забагато людей для цієї кімнати, її ємність {room.Capacity} людей", ExeptionType.Validation);
+                return Result<Room>.Failure($"Забагато людей для цієї кімнати, її ємність {room.Capacity} людей", ErrorType.Validation);
 
             return Result<Room>.Success(room);
         }

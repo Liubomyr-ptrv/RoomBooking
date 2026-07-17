@@ -23,7 +23,7 @@ namespace RoomBooking.API.Controllers.Identity
         {
             var result = await _roleService.AssignRoleAsync(model);
 
-            if(result.Succeeded == true)
+            if(result.Succeeded)
             {
                 return Ok(result.Data);
             }
@@ -37,7 +37,7 @@ namespace RoomBooking.API.Controllers.Identity
         {
             var result = await _roleService.RemoveRoleAsync(model);
 
-            if (result.Succeeded == true)
+            if (result.Succeeded)
             {
                 return Ok(result.Data);
             }

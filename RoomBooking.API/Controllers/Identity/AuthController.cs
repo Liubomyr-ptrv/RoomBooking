@@ -22,7 +22,7 @@ namespace RoomBooking.API.Controllers.Identity
         {
             var result = await _authService.RegisterAsync(registerModel);
 
-            if(result.Succeeded == true)
+            if(result.Succeeded)
             {
                 return Ok( result.Data);
             }
@@ -35,7 +35,7 @@ namespace RoomBooking.API.Controllers.Identity
         {
             var result = await _authService.LoginAsync(loginModel);
 
-            if (result.Succeeded == true)
+            if (result.Succeeded)
             {
                 return Ok(result.Data);
             }
