@@ -18,7 +18,7 @@ namespace RoomBooking.API.Controllers.Business
             _roomService = roomService;
         }
         
-        [HttpGet("{id}")]
+        [HttpGet("{id}", Name = nameof(RoomController) + "." + nameof(GetByIdAsync))]
         public async Task<IActionResult> GetByIdAsync(Guid id)
         {
             var result = await _roomService.GetByIdAsync(id);
@@ -78,7 +78,7 @@ namespace RoomBooking.API.Controllers.Business
 
             if (result.Succeeded)
             {
-                return CreatedAtAction("GetById", new { id = result.Data.Id }, result.Data);
+                return CreatedAtRoute(nameof(RoomController) + "." + nameof(GetByIdAsync), new { id = result.Data.Id }, result.Data);
             }
 
             return MapError(result.ErrorType, result.ErrorMessage);

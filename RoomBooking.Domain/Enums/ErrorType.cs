@@ -1,6 +1,6 @@
 ﻿namespace RoomBooking.Domain.Enums
 {
-    public enum ExeptionType
+    public enum ErrorType
     {
         None,
         NotFound,

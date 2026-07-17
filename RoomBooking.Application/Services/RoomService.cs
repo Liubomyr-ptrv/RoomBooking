@@ -17,6 +17,7 @@ namespace RoomBooking.Application.Services
         private readonly IDistributedCache _cache;
         private readonly IConnectionMultiplexer _redis;
         private static readonly int MaxAvailabilityRangeDays = 31;
+        private static readonly int AvailabilityCacheDurationMinutes = 5;
 
         public RoomService(IAppDbContext context, IDistributedCache cache, IConnectionMultiplexer redis)
         {
@@ -29,7 +30,7 @@ namespace RoomBooking.Application.Services
             var result = await _context.Rooms.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id && x.IsActive);
             if (result is null)
             {
-                return Result<RoomModel>.Failure($"Кімнату з id {id} не знайдено.", ExeptionType.NotFound);
+                return Result<RoomModel>.Failure($"Кімнату з id {id} не знайдено.", ErrorType.NotFound);
             }
             var room = MapToDto(result);
 
@@ -61,32 +62,22 @@ namespace RoomBooking.Application.Services
             var timeValidation = TimeValidation(dateFrom, dateTo);
             if (timeValidation is not null)
             {
-                return Result<List<TimeSlotModel>>.Failure(timeValidation, ExeptionType.Validation);
+                return Result<List<TimeSlotModel>>.Failure(timeValidation, ErrorType.Validation);
             }
 
             var cacheKey = $"room-availability:{roomId}:{dateFrom:yyyy-MM-ddTHH-mm}:{dateTo:yyyy-MM-ddTHH-mm}";
 
-            var cached = await _cache.GetStringAsync(cacheKey);
-            if (cached is not null)
+
+            var cachedSlots = await TryGetFromCacheAsync(cacheKey);
+            if (cachedSlots is not null)
             {
-                try
-                {
-                    var cachedSlots = JsonSerializer.Deserialize<List<TimeSlotModel>>(cached);
-                    if (cachedSlots is not null)
-                    {
-                        return Result<List<TimeSlotModel>>.Success(cachedSlots);
-                    }
-                }
-                catch (JsonException)
-                {
-                   
-                }
+                return Result<List<TimeSlotModel>>.Success(cachedSlots);
             }
 
             var room = await _context.Rooms.AsNoTracking().FirstOrDefaultAsync(x => x.Id == roomId);
             if (room is null)
             {
-                return Result<List<TimeSlotModel>>.Failure("Кімнату не знайдено.", ExeptionType.NotFound);
+                return Result<List<TimeSlotModel>>.Failure("Кімнату не знайдено.", ErrorType.NotFound);
             }
 
             var bookings = await _context.Bookings
@@ -104,10 +95,7 @@ namespace RoomBooking.Application.Services
                 })
                 .ToListAsync();
 
-            await _cache.SetStringAsync(
-                    cacheKey,
-                    JsonSerializer.Serialize(bookings),
-                    new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5) });
+            await TrySetCacheAsync(cacheKey, bookings);
 
             return Result<List<TimeSlotModel>>.Success(bookings);
         }
@@ -115,13 +103,13 @@ namespace RoomBooking.Application.Services
         {
             var validationError = ValidateRoomInput(model);
             if (validationError is not null)
-                return Result<RoomModel>.Failure(validationError, ExeptionType.Validation);
+                return Result<RoomModel>.Failure(validationError, ErrorType.Validation);
 
             var nameExists = await _context.Rooms
                 .AnyAsync(r => r.Name.ToLower() == model.Name.ToLower());
 
             if (nameExists)
-                return Result<RoomModel>.Failure( $"Кімната з назвою '{model.Name}' вже існує.", ExeptionType.Conflict);
+                return Result<RoomModel>.Failure( $"Кімната з назвою '{model.Name}' вже існує.", ErrorType.Conflict);
 
             var room = new Room
             {
@@ -145,17 +133,17 @@ namespace RoomBooking.Application.Services
         {
             var validationError = ValidateRoomInput(model);
             if (validationError is not null)
-                return Result<RoomModel>.Failure(validationError, ExeptionType.Validation);
+                return Result<RoomModel>.Failure(validationError, ErrorType.Validation);
 
             var updateRoom = await _context.Rooms.FirstOrDefaultAsync(r => r.Id == id);
             if (updateRoom is null)
-                return Result<RoomModel>.Failure($"Кімната з id {id} не існує",ExeptionType.NotFound);
+                return Result<RoomModel>.Failure($"Кімната з id {id} не існує",ErrorType.NotFound);
 
             var nameTaken = await _context.Rooms
                 .AnyAsync(r => r.Id != id && r.Name.ToLower() == model.Name.ToLower());
 
             if (nameTaken)
-                return Result<RoomModel>.Failure( $"Кімната з назвою '{model.Name}' вже існує.",  ExeptionType.Conflict);
+                return Result<RoomModel>.Failure( $"Кімната з назвою '{model.Name}' вже існує.",  ErrorType.Conflict);
 
             updateRoom.Name = model.Name;
             updateRoom.Description = model.Description ?? string.Empty;
@@ -211,17 +199,52 @@ namespace RoomBooking.Application.Services
                 foreach (var endpoint in _redis.GetEndPoints())
                 {
                     var server = _redis.GetServer(endpoint);
-                    if (server.IsReplica) continue; 
+
+                    if (server.IsReplica)
+                        continue;
+
+                    var keysToDelete = new List<RedisKey>();
 
                     await foreach (var key in server.KeysAsync(pattern: pattern))
-                    {           
-                        await db.KeyDeleteAsync(key);
+                    {
+                        keysToDelete.Add(key);
+                    }
+
+                    if (keysToDelete.Count > 0)
+                    {
+                        await db.KeyDeleteAsync(keysToDelete.ToArray());
                     }
                 }
             }
-            catch (Exception)
+            catch
+            {
+                
+            }
+        }
+        private async Task TrySetCacheAsync(string cacheKey, List<TimeSlotModel> slots)
+        {
+            try
+            {
+                await _cache.SetStringAsync(
+                    cacheKey,
+                    JsonSerializer.Serialize(slots),
+                    new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(AvailabilityCacheDurationMinutes) });
+            }
+            catch
             {
              
+            }
+        }
+        private async Task<List<TimeSlotModel>?> TryGetFromCacheAsync(string cacheKey)
+        {
+            try
+            {
+                var cached = await _cache.GetStringAsync(cacheKey);
+                return cached is null ? null : JsonSerializer.Deserialize<List<TimeSlotModel>>(cached);
+            }
+            catch
+            {
+                return null;
             }
         }
         private static string? TimeValidation(DateTime dateFrom, DateTime dateTo)
