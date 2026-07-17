@@ -96,26 +96,16 @@ namespace RoomBooking.API.Controllers.Business
 
             return MapError(result.ErrorType, result.ErrorMessage);
         }
-
-        [HttpDelete("{id}")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> DeleteAsync(Guid id)
+        [HttpPatch("{id}")]
+        public async Task<IActionResult> SetStatusAsync(Guid id, [FromQuery] bool isActive)
         {
-            var result = await _roomService.DeleteAsync(id);
+            var result = await _roomService.SetStatusAsync(id, isActive);
 
             if (result.Succeeded)
+            {
                 return NoContent();
-
-            return MapError(result.ErrorType, result.ErrorMessage);
-        }
-        [Authorize(Roles = "Admin")]
-        [HttpPatch("{id}/activate")]
-        public async Task<IActionResult> ActivateAsync(Guid id)
-        {
-            var result = await _roomService.ActivateAsync(id);
-
-            if (result.Succeeded)
-                return NoContent();
+            }
 
             return MapError(result.ErrorType, result.ErrorMessage);
         }

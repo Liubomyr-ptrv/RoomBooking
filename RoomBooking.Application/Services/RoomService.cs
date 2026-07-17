@@ -169,47 +169,35 @@ namespace RoomBooking.Application.Services
 
             return Result<RoomModel>.Success(MapToDto(updateRoom));
         }
-
-        public async Task<Result<bool>> DeleteAsync(Guid id)
-        {
-            var deletedRoom = await _context.Rooms.FirstOrDefaultAsync(r => r.Id == id);
-            if (deletedRoom is null)
-                return Result<bool>.Failure("Кімнату не знайдено", ExeptionType.NotFound);
-
-            if (!deletedRoom.IsActive)
-                return Result<bool>.Failure("Кімната вже деактивована.", ExeptionType.Conflict);
-
-            var hasActiveBookings = await _context.Bookings.AnyAsync(b =>
-                 b.RoomId == id &&
-                 b.Status != BookingStatus.Cancelled &&
-                 b.EndTime > DateTime.UtcNow);
-
-            if (hasActiveBookings)
-                return Result<bool>.Failure(
-                    "Неможливо деактивувати кімнату, поки на неї є активні бронювання.",
-                    ExeptionType.Conflict);
-                    
-
-            deletedRoom.IsActive = false;
-
-             await _context.SaveChangesAsync();
-               await InvalidateAvailabilityCacheAsync(id);
-
-            return Result<bool>.Success(true);
-        }
-        public async Task<Result<bool>> ActivateAsync(Guid id)
+        public async Task<Result<bool>> SetStatusAsync(Guid id, bool isActive)
         {
             var room = await _context.Rooms.FirstOrDefaultAsync(r => r.Id == id);
             if (room is null)
                 return Result<bool>.Failure("Кімнату не знайдено", ExeptionType.NotFound);
 
-            if (room.IsActive)
-                return Result<bool>.Failure("Кімната вже активна.", ExeptionType.Conflict);
+            if (room.IsActive == isActive)
+            {
+                var message = isActive ? "Кімната вже активна." : "Кімната вже деактивована.";
+                return Result<bool>.Failure(message, ExeptionType.Conflict);
+            }
 
-            room.IsActive = true;
+            if (!isActive)
+            {
+                var hasActiveBookings = await _context.Bookings.AnyAsync(b =>
+                     b.RoomId == id &&
+                     b.Status != BookingStatus.Cancelled &&
+                     b.EndTime > DateTime.UtcNow);
+
+                if (hasActiveBookings)
+                    return Result<bool>.Failure(
+                        "Неможливо деактивувати кімнату, поки на неї є активні бронювання.",
+                        ExeptionType.Conflict);
+            }
+
+            room.IsActive = isActive;
 
             await _context.SaveChangesAsync();
-            await InvalidateAvailabilityCacheAsync(id); 
+            await InvalidateAvailabilityCacheAsync(id);
 
             return Result<bool>.Success(true);
         }

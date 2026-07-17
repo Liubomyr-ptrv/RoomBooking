@@ -11,8 +11,7 @@ namespace RoomBooking.Application.Abstractions.Services
         public Task<Result<List<TimeSlotModel>>> GetAvailabilityAsync(Guid roomId, DateTime dateFrom, DateTime dateTo);
         public Task<Result<RoomModel>> CreateAsync(RoomInputModel model);
         public Task<Result<RoomModel>> UpdateAsync(Guid id,RoomInputModel model);
-        public Task<Result<bool>> DeleteAsync(Guid id);
-        public Task<Result<bool>> ActivateAsync(Guid id);
+        public  Task<Result<bool>> SetStatusAsync(Guid id, bool isActive);
         public Task InvalidateAvailabilityCacheAsync(Guid roomId);
     }
 }
