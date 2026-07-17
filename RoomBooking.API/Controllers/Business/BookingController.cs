@@ -57,9 +57,9 @@ namespace RoomBooking.API.Controllers.Business
         }
         [Authorize(Roles = "Admin")]
         [HttpGet]
-        public async Task<IActionResult> GetAllAsync()
+        public async Task<IActionResult> GetAllAsync([FromBody]BookingFilterModel? model)
         {    
-            var result = await _bookingService.GetAllAsync();
+            var result = await _bookingService.GetAllAsync(model);
 
             if (result.Succeeded)
             {
