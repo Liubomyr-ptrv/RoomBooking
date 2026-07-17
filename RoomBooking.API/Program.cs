@@ -7,7 +7,6 @@ using RoomBooking.Application.Settings;
 using RoomBooking.Infrastructure.Db;
 using RoomBooking.Infrastructure.Extensions;
 using RoomBooking.Infrastructure.Services.Caching;
-using StackExchange.Redis;
 
 
 var builder = WebApplication.CreateBuilder(args);
