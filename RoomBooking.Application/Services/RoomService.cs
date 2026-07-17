@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Logging;
 using RoomBooking.Application.Abstractions.Db;
 using RoomBooking.Application.Abstractions.Services;
 using RoomBooking.Application.Common;
@@ -15,13 +16,15 @@ namespace RoomBooking.Application.Services
     {
         private readonly IAppDbContext _context;
         private readonly IAvailabilityCacheService _availabilityCache;
+        private readonly ILogger<RoomService> _logger;
         private static readonly int MaxAvailabilityRangeDays = 31;
         private static readonly TimeSpan AvailabilityCacheTtl = TimeSpan.FromMinutes(5);
 
-        public RoomService(IAppDbContext context, IAvailabilityCacheService availabilityCache)
+        public RoomService(IAppDbContext context, IAvailabilityCacheService availabilityCache, ILogger<RoomService> logger)
         {
             _context = context;
             _availabilityCache = availabilityCache;
+            _logger = logger;
         }
         public async Task<Result<RoomModel>> GetByIdAsync(Guid id)
         {
@@ -123,6 +126,8 @@ namespace RoomBooking.Application.Services
              _context.Rooms.Add(room);
             await _context.SaveChangesAsync();
 
+            _logger.LogInformation("Кімнату '{RoomName}' (Id: {RoomId}) успішно створено.", room.Name, room.Id);
+
             return Result<RoomModel>.Success(MapToDto(room));
         }
 
@@ -151,6 +156,8 @@ namespace RoomBooking.Application.Services
 
             
             await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Дані кімнати {RoomId} успішно оновлено.", id);
 
             return Result<RoomModel>.Success(MapToDto(updateRoom));
         }
@@ -183,6 +190,8 @@ namespace RoomBooking.Application.Services
 
             await _context.SaveChangesAsync();
             await InvalidateAvailabilityCacheAsync(id);
+
+            _logger.LogInformation("Статус кімнати {RoomId} успішно змінено. Новий статус: {IsActive}.", id, isActive ? "Активна" : "Деактивована");
 
             return Result<bool>.Success(true);
         }

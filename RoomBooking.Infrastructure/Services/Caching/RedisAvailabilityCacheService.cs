@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Logging;
 using RoomBooking.Application.Abstractions.Services;
 using RoomBooking.Application.DTOs.Room;
 using StackExchange.Redis;
@@ -10,11 +11,13 @@ namespace RoomBooking.Infrastructure.Services.Caching
     {
         private readonly IDistributedCache _cache;
         private readonly IConnectionMultiplexer _redis;
+        private readonly ILogger<RedisAvailabilityCacheService> _logger;
 
-        public RedisAvailabilityCacheService(IDistributedCache cache, IConnectionMultiplexer redis)
+        public RedisAvailabilityCacheService(IDistributedCache cache, IConnectionMultiplexer redis, ILogger<RedisAvailabilityCacheService> logger)
         {
             _cache = cache;
             _redis = redis;
+            _logger = logger;
         }
 
         public async Task<List<TimeSlotModel>?> GetAsync(string cacheKey)
@@ -24,8 +27,9 @@ namespace RoomBooking.Infrastructure.Services.Caching
                 var cached = await _cache.GetStringAsync(cacheKey);
                 return cached is null ? null : JsonSerializer.Deserialize<List<TimeSlotModel>>(cached);
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogWarning(ex, "Не вдалося отримати дані з кешу за ключем {CacheKey}. Виконується Fallback до бази даних", cacheKey);
                 return null;
             }
         }
@@ -38,9 +42,9 @@ namespace RoomBooking.Infrastructure.Services.Caching
                     JsonSerializer.Serialize(slots),
                     new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = ttl });
             }
-            catch
+            catch (Exception ex)
             {
-              
+                _logger.LogWarning(ex, "Не вдалося зберегти дані в кеш для кімнати {RoomId} за ключем {CacheKey}", roomId, cacheKey);
             }
         }
         public async Task InvalidateAsync(Guid roomId)
@@ -70,9 +74,9 @@ namespace RoomBooking.Infrastructure.Services.Caching
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                
+                _logger.LogWarning(ex, "Помилка при інвалідації кешу для кімнати {RoomId}.", roomId);
             }
         }
     }
