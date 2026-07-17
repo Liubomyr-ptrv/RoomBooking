@@ -71,7 +71,7 @@ namespace RoomBooking.Application.Services
                 return Result<List<TimeSlotModel>>.Success(cachedSlots);
             }
 
-            var room = await _context.Rooms.AsNoTracking().FirstOrDefaultAsync(x => x.Id == roomId);
+            var room = await _context.Rooms.AsNoTracking().FirstOrDefaultAsync(x => x.Id == roomId && x.IsActive);
             if (room is null)
             {
                 return Result<List<TimeSlotModel>>.Failure("Кімнату не знайдено.", ErrorType.NotFound);
@@ -158,12 +158,12 @@ namespace RoomBooking.Application.Services
         {
             var room = await _context.Rooms.FirstOrDefaultAsync(r => r.Id == id);
             if (room is null)
-                return Result<bool>.Failure("Кімнату не знайдено", ExeptionType.NotFound);
+                return Result<bool>.Failure("Кімнату не знайдено", ErrorType.NotFound);
 
             if (room.IsActive == isActive)
             {
                 var message = isActive ? "Кімната вже активна." : "Кімната вже деактивована.";
-                return Result<bool>.Failure(message, ExeptionType.Conflict);
+                return Result<bool>.Failure(message, ErrorType.Conflict);
             }
 
             if (!isActive)
@@ -176,7 +176,7 @@ namespace RoomBooking.Application.Services
                 if (hasActiveBookings)
                     return Result<bool>.Failure(
                         "Неможливо деактивувати кімнату, поки на неї є активні бронювання.",
-                        ExeptionType.Conflict);
+                        ErrorType.Conflict);
             }
 
             room.IsActive = isActive;
@@ -189,18 +189,6 @@ namespace RoomBooking.Application.Services
         public async Task InvalidateAvailabilityCacheAsync(Guid roomId)
         {
             await _availabilityCache.InvalidateAsync(roomId);
-        }
-        private async Task<List<TimeSlotModel>?> TryGetFromCacheAsync(string cacheKey)
-        {
-            try
-            {
-                var cached = await _cache.GetStringAsync(cacheKey);
-                return cached is null ? null : JsonSerializer.Deserialize<List<TimeSlotModel>>(cached);
-            }
-            catch
-            {
-                return null;
-            }
         }
         private static string? TimeValidation(DateTime dateFrom, DateTime dateTo)
         {

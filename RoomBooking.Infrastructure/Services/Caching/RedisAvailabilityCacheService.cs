@@ -10,6 +10,7 @@ namespace RoomBooking.Infrastructure.Services.Caching
     {
         private readonly IDistributedCache _cache;
         private readonly IConnectionMultiplexer _redis;
+        private static readonly TimeSpan IndexTtlBuffer = TimeSpan.FromMinutes(5);
 
         public RedisAvailabilityCacheService(IDistributedCache cache, IConnectionMultiplexer redis)
         {
@@ -37,6 +38,12 @@ namespace RoomBooking.Infrastructure.Services.Caching
                     cacheKey,
                     JsonSerializer.Serialize(slots),
                     new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = ttl });
+
+                var db = _redis.GetDatabase();
+                var indexKey = GetIndexKey(roomId);
+
+                await db.SetAddAsync(indexKey, cacheKey);
+                await db.KeyExpireAsync(indexKey, ttl + IndexTtlBuffer);
             }
             catch
             {
@@ -47,33 +54,25 @@ namespace RoomBooking.Infrastructure.Services.Caching
         {
             try
             {
-                var pattern = $"room-availability:{roomId}:*";
+                var indexKey = GetIndexKey(roomId);
                 var db = _redis.GetDatabase();
 
-                foreach (var endpoint in _redis.GetEndPoints())
-                {
-                    var server = _redis.GetServer(endpoint);
+                var keys = await db.SetMembersAsync(indexKey);
+                if (keys.Length == 0)
+                    return;
 
-                    if (server.IsReplica)
-                        continue;
+                var keysToDelete = keys
+                   .Select(k => (RedisKey)k.ToString())
+                   .Append((RedisKey)indexKey)
+                   .ToArray();
 
-                    var keysToDelete = new List<RedisKey>();
-
-                    await foreach (var key in server.KeysAsync(pattern: pattern))
-                    {
-                        keysToDelete.Add(key);
-                    }
-
-                    if (keysToDelete.Count > 0)
-                    {
-                        await db.KeyDeleteAsync(keysToDelete.ToArray());
-                    }
-                }
+                await db.KeyDeleteAsync(keysToDelete);
             }
             catch
             {
                 
             }
         }
+        private static string GetIndexKey(Guid roomId) => $"room-availability-keys:{roomId}";
     }
 }
