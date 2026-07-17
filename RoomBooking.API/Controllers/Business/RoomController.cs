@@ -43,6 +43,19 @@ namespace RoomBooking.API.Controllers.Business
 
             return MapError(result.ErrorType, result.ErrorMessage);
         }
+        [Authorize(Roles="Admin")]
+        [HttpGet]
+        public async Task<IActionResult> GetDeactivatedAsync()
+        {
+            var result = await _roomService.GetDeactivatedAsync();
+
+            if (result.Succeeded)
+            {
+                return Ok(result.Data);
+            }
+
+            return MapError(result.ErrorType, result.ErrorMessage);
+        }
         [HttpGet("{id}/availability")]
         public async Task<IActionResult> GetAvailabilityAsync(
                   Guid id, [FromQuery] DateTime dateFrom, [FromQuery] DateTime dateTo)
@@ -94,6 +107,17 @@ namespace RoomBooking.API.Controllers.Business
                 return NoContent();
 
             return MapError(result.ErrorType, result.ErrorMessage);
-        }   
+        }
+        [Authorize(Roles = "Admin")]
+        [HttpPatch("{id}/activate")]
+        public async Task<IActionResult> ActivateAsync(Guid id)
+        {
+            var result = await _roomService.ActivateAsync(id);
+
+            if (result.Succeeded)
+                return NoContent();
+
+            return MapError(result.ErrorType, result.ErrorMessage);
+        }
     }
 }
