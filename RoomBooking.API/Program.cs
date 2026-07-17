@@ -6,6 +6,7 @@ using RoomBooking.Application.Services;
 using RoomBooking.Application.Settings;
 using RoomBooking.Infrastructure.Db;
 using RoomBooking.Infrastructure.Extensions;
+using RoomBooking.Infrastructure.Services.Caching;
 using StackExchange.Redis;
 
 
@@ -47,9 +48,9 @@ builder.Services.AddStackExchangeRedisCache(options =>
 {
     options.Configuration = builder.Configuration.GetConnectionString("Redis");
 });
-
 builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
     ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("Redis")!));
+builder.Services.AddScoped<IAvailabilityCacheService, RedisAvailabilityCacheService>();
 
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IRoleService, RoleService>();

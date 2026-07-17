@@ -6,7 +6,7 @@ using RoomBooking.Application.Common;
 using RoomBooking.Application.DTOs.Room;
 using RoomBooking.Domain.Entities;
 using RoomBooking.Domain.Enums;
-using StackExchange.Redis;
+
 using System.Text.Json;
 
 namespace RoomBooking.Application.Services
@@ -14,16 +14,14 @@ namespace RoomBooking.Application.Services
     public class RoomService : IRoomService
     {
         private readonly IAppDbContext _context;
-        private readonly IDistributedCache _cache;
-        private readonly IConnectionMultiplexer _redis;
+        private readonly IAvailabilityCacheService _availabilityCache;
         private static readonly int MaxAvailabilityRangeDays = 31;
-        private static readonly int AvailabilityCacheDurationMinutes = 5;
+        private static readonly TimeSpan AvailabilityCacheTtl = TimeSpan.FromMinutes(5);
 
-        public RoomService(IAppDbContext context, IDistributedCache cache, IConnectionMultiplexer redis)
+        public RoomService(IAppDbContext context, IAvailabilityCacheService availabilityCache)
         {
             _context = context;
-            _cache = cache;
-            _redis = redis;
+            _availabilityCache = availabilityCache;
         }
         public async Task<Result<RoomModel>> GetByIdAsync(Guid id)
         {
@@ -58,8 +56,7 @@ namespace RoomBooking.Application.Services
 
             var cacheKey = $"room-availability:{roomId}:{dateFrom:yyyy-MM-ddTHH-mm}:{dateTo:yyyy-MM-ddTHH-mm}";
 
-
-            var cachedSlots = await TryGetFromCacheAsync(cacheKey);
+            var cachedSlots = await _availabilityCache.GetAsync(cacheKey);
             if (cachedSlots is not null)
             {
                 return Result<List<TimeSlotModel>>.Success(cachedSlots);
@@ -86,7 +83,7 @@ namespace RoomBooking.Application.Services
                 })
                 .ToListAsync();
 
-            await TrySetCacheAsync(cacheKey, bookings);
+            await _availabilityCache.SetAsync(roomId, cacheKey, bookings, AvailabilityCacheTtl);
 
             return Result<List<TimeSlotModel>>.Success(bookings);
         }
@@ -177,49 +174,7 @@ namespace RoomBooking.Application.Services
         }
         public async Task InvalidateAvailabilityCacheAsync(Guid roomId)
         {
-            try
-            {
-                var pattern = $"room-availability:{roomId}:*";
-                var db = _redis.GetDatabase();
-
-                foreach (var endpoint in _redis.GetEndPoints())
-                {
-                    var server = _redis.GetServer(endpoint);
-
-                    if (server.IsReplica)
-                        continue;
-
-                    var keysToDelete = new List<RedisKey>();
-
-                    await foreach (var key in server.KeysAsync(pattern: pattern))
-                    {
-                        keysToDelete.Add(key);
-                    }
-
-                    if (keysToDelete.Count > 0)
-                    {
-                        await db.KeyDeleteAsync(keysToDelete.ToArray());
-                    }
-                }
-            }
-            catch
-            {
-                
-            }
-        }
-        private async Task TrySetCacheAsync(string cacheKey, List<TimeSlotModel> slots)
-        {
-            try
-            {
-                await _cache.SetStringAsync(
-                    cacheKey,
-                    JsonSerializer.Serialize(slots),
-                    new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(AvailabilityCacheDurationMinutes) });
-            }
-            catch
-            {
-             
-            }
+            await _availabilityCache.InvalidateAsync(roomId);
         }
         private async Task<List<TimeSlotModel>?> TryGetFromCacheAsync(string cacheKey)
         {
