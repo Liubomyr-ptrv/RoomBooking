@@ -30,10 +30,13 @@ namespace RoomBooking.Infrastructure.Services.Caching
         {
             try
             {
+                var jitter = TimeSpan.FromSeconds(Random.Shared.Next(0, 31)); 
+                var finalTtl = ttl.Add(jitter);
+
                 await _cache.SetStringAsync(
                     GetCacheKey(roomId),
                     JsonSerializer.Serialize(slots),
-                    new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = ttl });
+                    new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = finalTtl });
            }
             catch
             {
