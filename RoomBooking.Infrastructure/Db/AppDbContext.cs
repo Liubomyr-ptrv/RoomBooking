@@ -57,6 +57,10 @@ namespace RoomBooking.Infrastructure.Db
 
             modelBuilder.Entity<Booking>()
                 .HasIndex(b => new { b.RoomId, b.StartTime, b.EndTime });
+
+            modelBuilder.Entity<Room>()
+                 .HasIndex(r => r.Name)
+                 .IsUnique();
         }
     }
 }
