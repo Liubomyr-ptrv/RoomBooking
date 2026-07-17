@@ -2,7 +2,10 @@
 using Microsoft.AspNetCore.Mvc;
 using RoomBooking.API.Controllers.Base;
 using RoomBooking.Application.Abstractions.Services;
+using RoomBooking.Application.Common;
 using RoomBooking.Application.DTOs.Booking;
+using RoomBooking.Domain.Entities;
+using RoomBooking.Domain.Enums;
 using System.Security.Claims;
 
 namespace RoomBooking.API.Controllers.Business
@@ -21,7 +24,12 @@ namespace RoomBooking.API.Controllers.Business
         public async Task<IActionResult> GetByIdAsync(Guid bookingId)
         {
             var userId = GetUserId();
-            var result = await _bookingService.GetByIdAsync(bookingId, userId);
+            if (!userId.Succeeded)
+            {
+                return MapError(userId.ErrorType, userId.ErrorMessage);
+            }
+
+            var result = await _bookingService.GetByIdAsync(bookingId, userId.Data);
 
             if (result.Succeeded)
             {
@@ -34,7 +42,11 @@ namespace RoomBooking.API.Controllers.Business
         public async Task<IActionResult> GetMyAsync()
         {
             var userId = GetUserId();
-            var result = await _bookingService.GetByUserIdAsync(userId);
+            if (!userId.Succeeded)
+            {
+                return MapError(userId.ErrorType, userId.ErrorMessage);
+            }
+            var result = await _bookingService.GetByUserIdAsync(userId.Data);
 
             if (result.Succeeded)
             {
@@ -60,7 +72,11 @@ namespace RoomBooking.API.Controllers.Business
         public async Task<IActionResult> CreateAsync([FromBody] CreateBookingModel model)
         {
             var userId = GetUserId();
-            var result = await _bookingService.CreateBookingAsync(model,userId);
+            if (!userId.Succeeded)
+            {
+                return MapError(userId.ErrorType, userId.ErrorMessage);
+            }
+            var result = await _bookingService.CreateBookingAsync(model,userId.Data);
 
             if (result.Succeeded)
             {
@@ -73,9 +89,13 @@ namespace RoomBooking.API.Controllers.Business
         public async Task<IActionResult> CancelAsync(Guid bookingId)
         {
             var userId = GetUserId();
+            if (!userId.Succeeded)
+            {
+                return MapError(userId.ErrorType, userId.ErrorMessage);
+            }
             var isAdmin = User.IsInRole("Admin");
 
-            var result = await _bookingService.CancelBookingAsync(bookingId, userId, isAdmin);
+            var result = await _bookingService.CancelBookingAsync(bookingId, userId.Data, isAdmin);
 
             if (result.Succeeded)
             {
@@ -84,13 +104,15 @@ namespace RoomBooking.API.Controllers.Business
 
             return MapError(result.ErrorType, result.ErrorMessage);
         }
-        private Guid GetUserId()
+        private Result<Guid> GetUserId()
         {
             var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userIdString))
-                throw new UnauthorizedAccessException("Токен не містить ідентифікатора користувача.");
+            if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
+            {
+                return Result<Guid>.Failure("Токен не містить ідентифікатора користувача.", ExeptionType.Unauthorized);
+            }
 
-            return Guid.Parse(userIdString);
+            return Result<Guid>.Success(userId);
         }       
     }
 }
