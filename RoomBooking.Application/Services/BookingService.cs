@@ -44,7 +44,7 @@ namespace RoomBooking.Application.Services
             return Result<List<BookingModel>>.Success(result.Select(MapToDto).ToList());
 
         }
-        public async Task<Result<List<BookingModel>>> GetAllAsync(BookingFilterModel? filter = null)
+        public async Task<Result<List<BookingModel>>> GetAllAsync(BookingFilterModel? filter)
         {
             var query = _context.Bookings.AsNoTracking().AsQueryable();
 
