@@ -7,9 +7,9 @@ namespace RoomBooking.Application.Common
         public bool Succeeded { get; }
         public T? Data { get;  }
         public string? ErrorMessage { get; }
-        public ExeptionType ErrorType { get;  }
+        public ErrorType ErrorType { get;  }
 
-        private Result(bool succeeded, T? data, string? error, ExeptionType errorType)
+        private Result(bool succeeded, T? data, string? error, ErrorType errorType)
         {
             Succeeded = succeeded;
             Data = data;
@@ -20,10 +20,10 @@ namespace RoomBooking.Application.Common
         {
             return new Result<T>
             (
-                true, data, null, ExeptionType.None
+                true, data, null, ErrorType.None
             );
         }
-        public static Result<T> Failure(string errorMessage, ExeptionType errorType)
+        public static Result<T> Failure(string errorMessage, ErrorType errorType)
         {
             return new Result<T>
             (

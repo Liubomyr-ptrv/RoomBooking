@@ -23,6 +23,7 @@
   </ItemGroup>
 	<PropertyGroup>
 		<NoWarn>$(NoWarn);NU1903</NoWarn>
+		<UserSecretsId>1a3d2523-6da4-45a3-9bfd-b133cd121201</UserSecretsId>
 	</PropertyGroup>
 
 </Project>
