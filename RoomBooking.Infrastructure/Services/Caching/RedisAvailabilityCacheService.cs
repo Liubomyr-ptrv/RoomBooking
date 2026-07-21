@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.Caching.Distributed;
 using RoomBooking.Application.Abstractions.Services;
 using RoomBooking.Application.DTOs.Room;
-using StackExchange.Redis;
 using System.Text.Json;
 
 namespace RoomBooking.Infrastructure.Services.Caching
@@ -9,19 +8,17 @@ namespace RoomBooking.Infrastructure.Services.Caching
     public class RedisAvailabilityCacheService : IAvailabilityCacheService
     {
         private readonly IDistributedCache _cache;
-        private readonly IConnectionMultiplexer _redis;
 
-        public RedisAvailabilityCacheService(IDistributedCache cache, IConnectionMultiplexer redis)
+        public RedisAvailabilityCacheService(IDistributedCache cache)
         {
             _cache = cache;
-            _redis = redis;
         }
 
-        public async Task<List<TimeSlotModel>?> GetAsync(string cacheKey)
+        public async Task<List<TimeSlotModel>?> GetAsync(Guid roomId )
         {
             try
             {
-                var cached = await _cache.GetStringAsync(cacheKey);
+                var cached = await _cache.GetStringAsync(GetCacheKey(roomId));
                 return cached is null ? null : JsonSerializer.Deserialize<List<TimeSlotModel>>(cached);
             }
             catch
@@ -29,15 +26,18 @@ namespace RoomBooking.Infrastructure.Services.Caching
                 return null;
             }
         }
-        public async Task SetAsync(Guid roomId, string cacheKey, List<TimeSlotModel> slots, TimeSpan ttl)
+        public async Task SetAsync(Guid roomId, List<TimeSlotModel> slots, TimeSpan ttl)
         {
             try
             {
+                var jitter = TimeSpan.FromSeconds(Random.Shared.Next(0, 31)); 
+                var finalTtl = ttl.Add(jitter);
+
                 await _cache.SetStringAsync(
-                    cacheKey,
+                    GetCacheKey(roomId),
                     JsonSerializer.Serialize(slots),
-                    new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = ttl });
-            }
+                    new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = finalTtl });
+           }
             catch
             {
               
@@ -47,33 +47,13 @@ namespace RoomBooking.Infrastructure.Services.Caching
         {
             try
             {
-                var pattern = $"room-availability:{roomId}:*";
-                var db = _redis.GetDatabase();
-
-                foreach (var endpoint in _redis.GetEndPoints())
-                {
-                    var server = _redis.GetServer(endpoint);
-
-                    if (server.IsReplica)
-                        continue;
-
-                    var keysToDelete = new List<RedisKey>();
-
-                    await foreach (var key in server.KeysAsync(pattern: pattern))
-                    {
-                        keysToDelete.Add(key);
-                    }
-
-                    if (keysToDelete.Count > 0)
-                    {
-                        await db.KeyDeleteAsync(keysToDelete.ToArray());
-                    }
-                }
+               await _cache.RemoveAsync(GetCacheKey(roomId));
             }
             catch
             {
                 
             }
         }
+        private static string GetCacheKey(Guid roomId) => $"room-bookings:{roomId}";
     }
 }
