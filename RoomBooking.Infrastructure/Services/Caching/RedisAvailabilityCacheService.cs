@@ -22,7 +22,7 @@ namespace RoomBooking.Infrastructure.Services.Caching
             var cacheKey = GetCacheKey(roomId);
             try
             {
-                var cached = await _cache.GetStringAsync(GetCacheKey(roomId));
+                var cached = await _cache.GetStringAsync(cacheKey);
                 return cached is null ? null : JsonSerializer.Deserialize<List<TimeSlotModel>>(cached);
             }
             catch (Exception ex)
@@ -40,7 +40,7 @@ namespace RoomBooking.Infrastructure.Services.Caching
                 var finalTtl = ttl.Add(jitter);
 
                 await _cache.SetStringAsync(
-                    GetCacheKey(roomId),
+                    cacheKey,
                     JsonSerializer.Serialize(slots),
                     new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = ttl });
             }
