@@ -19,7 +19,6 @@ namespace RoomBooking.Application.Services
         public BookingService(IAppDbContext context, IRoomService roomService, ILogger<BookingService> logger)
         {
             _context = context;
-            _roomService = roomService;
             _logger = logger;
         }
         public async Task<Result<BookingModel>> GetByIdAsync(Guid bookingId, Guid userId)
