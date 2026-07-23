@@ -13,7 +13,7 @@ namespace RoomBooking.Application.Services
     public class BookingService : IBookingService
     {
         private readonly IAppDbContext _context;
-        private readonly IRoomService _roomService;
+        private readonly IAvailabilityCacheService _cacheService;
         private static readonly TimeSpan MaxBookingDuration = TimeSpan.FromDays(7);
         private readonly ILogger<BookingService> _logger;
         public BookingService(IAppDbContext context, IRoomService roomService, ILogger<BookingService> logger)
@@ -129,7 +129,7 @@ namespace RoomBooking.Application.Services
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                await _roomService.InvalidateAvailabilityCacheAsync(booking.RoomId);
+                await _cacheService.InvalidateAsync(booking.RoomId);
 
             }
             catch (DbUpdateException ex) when (_context.IsSerializationFailure(ex))
@@ -168,7 +168,7 @@ namespace RoomBooking.Application.Services
             result.Status = BookingStatus.Cancelled;
             await _context.SaveChangesAsync();
 
-            await _roomService.InvalidateAvailabilityCacheAsync(result.RoomId);
+            await _cacheService.InvalidateAsync(result.RoomId);
 
             _logger.LogInformation("Booking {BookingId} has been successfully cancelled by user {UserId}.", bookingId, userId);
             return Result<bool>.Success(true);

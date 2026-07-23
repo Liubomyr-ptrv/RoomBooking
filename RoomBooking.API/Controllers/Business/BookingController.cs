@@ -109,7 +109,7 @@ namespace RoomBooking.API.Controllers.Business
             var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
             {
-                return Result<Guid>.Failure("Токен не містить ідентифікатора користувача.", ExeptionType.Unauthorized);
+                return Result<Guid>.Failure("Токен не містить ідентифікатора користувача.", ErrorType.Unauthorized);
             }
 
             return Result<Guid>.Success(userId);

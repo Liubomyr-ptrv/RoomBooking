@@ -8,8 +8,6 @@ using RoomBooking.Application.DTOs.Room;
 using RoomBooking.Domain.Entities;
 using RoomBooking.Domain.Enums;
 
-using System.Text.Json;
-
 namespace RoomBooking.Application.Services
 {
     public class RoomService : IRoomService
@@ -66,38 +64,40 @@ namespace RoomBooking.Application.Services
                 return Result<List<TimeSlotModel>>.Failure(timeValidation, ErrorType.Validation);
             }
 
-            var cacheKey = $"room-availability:{roomId}:{dateFrom:yyyy-MM-ddTHH-mm}:{dateTo:yyyy-MM-ddTHH-mm}";
+            var allBookings = await _availabilityCache.GetAsync(roomId);
 
-            var cachedSlots = await _availabilityCache.GetAsync(cacheKey);
-            if (cachedSlots is not null)
+            if (allBookings is null)
             {
-                return Result<List<TimeSlotModel>>.Success(cachedSlots);
-            }
-
-            var room = await _context.Rooms.AsNoTracking().FirstOrDefaultAsync(x => x.Id == roomId);
-            if (room is null)
-            {
-                return Result<List<TimeSlotModel>>.Failure("Кімнату не знайдено.", ErrorType.NotFound);
-            }
-
-            var bookings = await _context.Bookings
-                .AsNoTracking()
-                .Where(x => x.RoomId == roomId
-                          && x.Status != BookingStatus.Cancelled
-                          && x.StartTime < dateTo
-                          && x.EndTime > dateFrom)
-                .OrderBy(b => b.StartTime)
-                .Select(b => new TimeSlotModel
+                var room = await _context.Rooms.AsNoTracking().FirstOrDefaultAsync(x => x.Id == roomId && x.IsActive);
+                if (room is null)
                 {
-                    StartTime = b.StartTime,
-                    EndTime = b.EndTime,
-                    IsBooked = true
-                })
-                .ToListAsync();
+                    return Result<List<TimeSlotModel>>.Failure("Кімнату не знайдено.", ErrorType.NotFound);
+                }
 
-            await _availabilityCache.SetAsync(roomId, cacheKey, bookings, AvailabilityCacheTtl);
+                var horizonEnd = DateTime.UtcNow.Date.AddDays(MaxAvailabilityRangeDays);
 
-            return Result<List<TimeSlotModel>>.Success(bookings);
+                allBookings = await _context.Bookings
+                    .AsNoTracking()
+                    .Where(x => x.RoomId == roomId
+                              && x.Status != BookingStatus.Cancelled
+                              && x.StartTime < horizonEnd)
+                    .OrderBy(b => b.StartTime)
+                    .Select(b => new TimeSlotModel
+                    {
+                        StartTime = b.StartTime,
+                        EndTime = b.EndTime,
+                        IsBooked = true
+                    })
+                    .ToListAsync();
+
+                await _availabilityCache.SetAsync(roomId, allBookings, AvailabilityCacheTtl);
+            }
+
+            var filtered = allBookings
+                .Where(b => b.StartTime < dateTo && b.EndTime > dateFrom)
+                .ToList();
+
+            return Result<List<TimeSlotModel>>.Success(filtered);
         }
         public async Task<Result<RoomModel>> CreateAsync(RoomInputModel model)
         {
@@ -165,12 +165,12 @@ namespace RoomBooking.Application.Services
         {
             var room = await _context.Rooms.FirstOrDefaultAsync(r => r.Id == id);
             if (room is null)
-                return Result<bool>.Failure("Кімнату не знайдено", ExeptionType.NotFound);
+                return Result<bool>.Failure("Кімнату не знайдено", ErrorType.NotFound);
 
             if (room.IsActive == isActive)
             {
                 var message = isActive ? "Кімната вже активна." : "Кімната вже деактивована.";
-                return Result<bool>.Failure(message, ExeptionType.Conflict);
+                return Result<bool>.Failure(message, ErrorType.Conflict);
             }
 
             if (!isActive)
@@ -183,33 +183,17 @@ namespace RoomBooking.Application.Services
                 if (hasActiveBookings)
                     return Result<bool>.Failure(
                         "Неможливо деактивувати кімнату, поки на неї є активні бронювання.",
-                        ExeptionType.Conflict);
+                        ErrorType.Conflict);
             }
 
             room.IsActive = isActive;
 
             await _context.SaveChangesAsync();
-            await InvalidateAvailabilityCacheAsync(id);
+            await _availabilityCache.InvalidateAsync(id);
 
             _logger.LogInformation("The status of room {RoomId} has been successfully changed. New status: {IsActive}.", id, isActive ? "Active" : "Deactivated");
 
             return Result<bool>.Success(true);
-        }
-        public async Task InvalidateAvailabilityCacheAsync(Guid roomId)
-        {
-            await _availabilityCache.InvalidateAsync(roomId);
-        }
-        private async Task<List<TimeSlotModel>?> TryGetFromCacheAsync(string cacheKey)
-        {
-            try
-            {
-                var cached = await _cache.GetStringAsync(cacheKey);
-                return cached is null ? null : JsonSerializer.Deserialize<List<TimeSlotModel>>(cached);
-            }
-            catch
-            {
-                return null;
-            }
         }
         private static string? TimeValidation(DateTime dateFrom, DateTime dateTo)
         {
@@ -227,6 +211,11 @@ namespace RoomBooking.Application.Services
 
             if ((dateTo - dateFrom).TotalDays > MaxAvailabilityRangeDays)
                 return $"Максимальний період перегляду доступності — {MaxAvailabilityRangeDays} днів.";
+
+            var horizonEnd = DateTime.UtcNow.Date.AddDays(MaxAvailabilityRangeDays);
+
+            if (dateTo > horizonEnd)
+                return $"Дата завершення не може перевищувати {MaxAvailabilityRangeDays} днів від поточного моменту.";
 
             return null;
         }

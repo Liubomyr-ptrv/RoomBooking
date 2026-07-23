@@ -44,7 +44,7 @@ namespace RoomBooking.API.Controllers.Business
             return MapError(result.ErrorType, result.ErrorMessage);
         }
         [Authorize(Roles="Admin")]
-        [HttpGet]
+        [HttpGet("deactivated")]
         public async Task<IActionResult> GetDeactivatedAsync()
         {
             var result = await _roomService.GetDeactivatedAsync();
