@@ -48,7 +48,7 @@ namespace RoomBooking.Application.Services
                 await _userManager.AddToRoleAsync(user, nameof(UserRole.Client));
             }
 
-            _logger.LogInformation("Роль {Role} успішно призначено користувачу {UserId}.", roleName, model.UserId);
+            _logger.LogInformation("The role {Role} has been successfully assigned to user {UserId}.", roleName, model.UserId);
             return Result<bool>.Success(true);
         }
 
@@ -77,7 +77,7 @@ namespace RoomBooking.Application.Services
                 return Result<bool>.Failure("Не вдалось видалити роль користувачу.", ErrorType.InternalServerError);
             }
 
-            _logger.LogInformation("Роль {Role} успішно видалено у користувача {UserId}.", roleName, model.UserId);
+            _logger.LogInformation("Role {Role} successfully removed from user {UserId}.", roleName, model.UserId);
             return Result<bool>.Success(true);
         }
     }

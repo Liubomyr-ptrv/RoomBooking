@@ -48,7 +48,7 @@ namespace RoomBooking.Application.Services
 
             var token = await GenerateJwtTokenAsync(existing);
 
-            _logger.LogInformation("Користувач {Email} (Id: {UserId}) успішно увійшов у систему.", existing.Email, existing.Id);
+            _logger.LogInformation("User {Email} (Id: {UserId}) has successfully logged into the system.", existing.Email, existing.Id);
 
             return Result<string>.Success(token);
         }
@@ -83,7 +83,7 @@ namespace RoomBooking.Application.Services
 
             var token = await GenerateJwtTokenAsync(user);
 
-            _logger.LogInformation("Новий користувач {Email} (Id: {UserId}) успішно зареєстрований.", user.Email, user.Id);
+            _logger.LogInformation("New user {Email} (Id: {UserId}) has been successfully registered.", user.Email, user.Id);
 
             return Result<string>.Success(token);
         }  

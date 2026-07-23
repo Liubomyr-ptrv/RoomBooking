@@ -91,7 +91,7 @@ try
 }
 catch (Exception ex)
 {
-    Log.Fatal(ex, "Застосунок несподівано завершив роботу");
+    Log.Fatal(ex, "The application quit unexpectedly.");
 }
 finally
 {

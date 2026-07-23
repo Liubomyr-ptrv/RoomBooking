@@ -140,7 +140,7 @@ namespace RoomBooking.Application.Services
                     ErrorType.Conflict);
             }
 
-            _logger.LogInformation("Бронювання {BookingId} для кімнати {RoomId} успішно створено користувачем {UserId}.", booking.Id, booking.RoomId, userId);
+            _logger.LogInformation("\r\nBooking {BookingId} for room {RoomId} has been successfully created by user {UserId}.", booking.Id, booking.RoomId, userId);
 
             return Result<BookingModel>.Success(MapToDto(booking));
         }
@@ -170,7 +170,7 @@ namespace RoomBooking.Application.Services
 
             await _roomService.InvalidateAvailabilityCacheAsync(result.RoomId);
 
-            _logger.LogInformation("Бронювання {BookingId} успішно скасовано користувачем {UserId}.", bookingId, userId);
+            _logger.LogInformation("Booking {BookingId} has been successfully cancelled by user {UserId}.", bookingId, userId);
             return Result<bool>.Success(true);
 
         }

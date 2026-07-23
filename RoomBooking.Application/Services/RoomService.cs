@@ -126,7 +126,7 @@ namespace RoomBooking.Application.Services
              _context.Rooms.Add(room);
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation("Кімнату '{RoomName}' (Id: {RoomId}) успішно створено.", room.Name, room.Id);
+            _logger.LogInformation("Room '{RoomName}' (Id: {RoomId}) has been successfully created.", room.Name, room.Id);
 
             return Result<RoomModel>.Success(MapToDto(room));
         }
@@ -157,7 +157,7 @@ namespace RoomBooking.Application.Services
             
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation("Дані кімнати {RoomId} успішно оновлено.", id);
+            _logger.LogInformation("The data for room {RoomId} has been successfully updated.", id);
 
             return Result<RoomModel>.Success(MapToDto(updateRoom));
         }
@@ -191,7 +191,7 @@ namespace RoomBooking.Application.Services
             await _context.SaveChangesAsync();
             await InvalidateAvailabilityCacheAsync(id);
 
-            _logger.LogInformation("Статус кімнати {RoomId} успішно змінено. Новий статус: {IsActive}.", id, isActive ? "Активна" : "Деактивована");
+            _logger.LogInformation("The status of room {RoomId} has been successfully changed. New status: {IsActive}.", id, isActive ? "Active" : "Deactivated");
 
             return Result<bool>.Success(true);
         }
