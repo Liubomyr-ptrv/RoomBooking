@@ -9,18 +9,17 @@ namespace RoomBooking.Infrastructure.Services.Caching
     public class RedisAvailabilityCacheService : IAvailabilityCacheService
     {
         private readonly IDistributedCache _cache;
-        private readonly IConnectionMultiplexer _redis;
         private readonly ILogger<RedisAvailabilityCacheService> _logger;
 
-        public RedisAvailabilityCacheService(IDistributedCache cache, IConnectionMultiplexer redis, ILogger<RedisAvailabilityCacheService> logger)
+        public RedisAvailabilityCacheService(IDistributedCache cache, ILogger<RedisAvailabilityCacheService> logger)
         {
             _cache = cache;
-            _redis = redis;
             _logger = logger;
         }
 
         public async Task<List<TimeSlotModel>?> GetAsync(Guid roomId )
         {
+            var cacheKey = GetCacheKey(roomId);
             try
             {
                 var cached = await _cache.GetStringAsync(GetCacheKey(roomId));
@@ -28,12 +27,13 @@ namespace RoomBooking.Infrastructure.Services.Caching
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Не вдалося отримати дані з кешу за ключем {CacheKey}. Виконується Fallback до бази даних", cacheKey);
+                _logger.LogWarning(ex, "Failed to get cached data for key {CacheKey}. Falling back to database", cacheKey);
                 return null;
             }
         }
         public async Task SetAsync(Guid roomId, List<TimeSlotModel> slots, TimeSpan ttl)
         {
+            var cacheKey = GetCacheKey(roomId);
             try
             {
                 var jitter = TimeSpan.FromSeconds(Random.Shared.Next(0, 31)); 
@@ -46,7 +46,7 @@ namespace RoomBooking.Infrastructure.Services.Caching
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Не вдалося зберегти дані в кеш для кімнати {RoomId} за ключем {CacheKey}", roomId, cacheKey);
+                _logger.LogWarning(ex, "Failed to set cache for room {RoomId} with key {CacheKey}", roomId, cacheKey);
             }
         }
         public async Task InvalidateAsync(Guid roomId)
@@ -57,7 +57,7 @@ namespace RoomBooking.Infrastructure.Services.Caching
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Помилка при інвалідації кешу для кімнати {RoomId}.", roomId);
+                _logger.LogWarning(ex, "Failed to invalidate cache for room {RoomId}", roomId);
             }
         }
         private static string GetCacheKey(Guid roomId) => $"room-bookings:{roomId}";
