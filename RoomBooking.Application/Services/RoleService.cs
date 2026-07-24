@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Logging;
 using RoomBooking.Application.Abstractions.Services;
 using RoomBooking.Application.Common;
 using RoomBooking.Application.DTOs.Roles;
@@ -10,11 +11,13 @@ namespace RoomBooking.Application.Services
     public class RoleService : IRoleService
     {
         private readonly UserManager<User> _userManager;
-        public RoleService(UserManager<User> userManager)
+        private readonly ILogger<RoleService> _logger;
+        public RoleService(UserManager<User> userManager, ILogger<RoleService> logger)
         {
             _userManager = userManager;
+            _logger = logger;
         }
-        public async Task<Result<bool>> AssignRoleAsync(AssignRoleModel model)
+        public async Task<Result<bool>> AssignRoleAsync(AssignRoleModel model )
         {
             if (!Enum.IsDefined(typeof(UserRole), model.Role))
                 return Result<bool>.Failure("Невалідна роль.", ErrorType.Validation);
@@ -45,6 +48,7 @@ namespace RoomBooking.Application.Services
                 await _userManager.AddToRoleAsync(user, nameof(UserRole.Client));
             }
 
+            _logger.LogInformation("The role {Role} has been successfully assigned to user {UserId}.", roleName, model.UserId);
             return Result<bool>.Success(true);
         }
 
@@ -73,6 +77,7 @@ namespace RoomBooking.Application.Services
                 return Result<bool>.Failure("Не вдалось видалити роль користувачу.", ErrorType.InternalServerError);
             }
 
+            _logger.LogInformation("Role {Role} successfully removed from user {UserId}.", roleName, model.UserId);
             return Result<bool>.Success(true);
         }
     }

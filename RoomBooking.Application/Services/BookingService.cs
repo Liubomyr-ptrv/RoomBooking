@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using RoomBooking.Application.Abstractions.Db;
 using RoomBooking.Application.Abstractions.Services;
 using RoomBooking.Application.Common;
@@ -14,10 +15,11 @@ namespace RoomBooking.Application.Services
         private readonly IAppDbContext _context;
         private readonly IAvailabilityCacheService _cacheService;
         private static readonly TimeSpan MaxBookingDuration = TimeSpan.FromDays(7);
-        public BookingService(IAppDbContext context, IAvailabilityCacheService cacheService)
+        private readonly ILogger<BookingService> _logger;
+        public BookingService(IAppDbContext context, IRoomService roomService, ILogger<BookingService> logger)
         {
             _context = context;
-            _cacheService = cacheService;
+            _logger = logger;
         }
         public async Task<Result<BookingModel>> GetByIdAsync(Guid bookingId, Guid userId)
         {
@@ -137,6 +139,8 @@ namespace RoomBooking.Application.Services
                     ErrorType.Conflict);
             }
 
+            _logger.LogInformation("\r\nBooking {BookingId} for room {RoomId} has been successfully created by user {UserId}.", booking.Id, booking.RoomId, userId);
+
             return Result<BookingModel>.Success(MapToDto(booking));
         }
         public async Task<Result<bool>> CancelBookingAsync(Guid bookingId, Guid userId, bool isAdmin)
@@ -165,6 +169,7 @@ namespace RoomBooking.Application.Services
 
             await _cacheService.InvalidateAsync(result.RoomId);
 
+            _logger.LogInformation("Booking {BookingId} has been successfully cancelled by user {UserId}.", bookingId, userId);
             return Result<bool>.Success(true);
 
         }

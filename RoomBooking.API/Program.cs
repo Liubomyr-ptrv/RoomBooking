@@ -7,70 +7,93 @@ using RoomBooking.Application.Settings;
 using RoomBooking.Infrastructure.Db;
 using RoomBooking.Infrastructure.Extensions;
 using RoomBooking.Infrastructure.Services.Caching;
+using Serilog;
+using StackExchange.Redis;
 
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .WriteTo.Console()
+    .WriteTo.File("logs/log-.txt", rollingInterval: RollingInterval.Day)
+    .CreateLogger();
+try
 {
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        In = ParameterLocation.Header,
-        Description = "Input JWT in format: Bearer {token}",
-        Name = "Authorization",
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
-    });
 
-    c.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+    builder.Services.AddControllers();
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen(c =>
     {
+        c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+        {
+            In = ParameterLocation.Header,
+            Description = "Input JWT in format: Bearer {token}",
+            Name = "Authorization",
+            Type = SecuritySchemeType.ApiKey,
+            Scheme = "Bearer"
+        });
+
+        c.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+        {
         { new OpenApiSecuritySchemeReference("Bearer", document), [] }
+        });
     });
-});
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddScoped<IAppDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+    builder.Services.AddScoped<IAppDbContext>(provider => provider.GetRequiredService<AppDbContext>());
 
-builder.Services.AddIdentityServices();
+    builder.Services.AddIdentityServices();
 
-builder.Services.AddOptions<JwtConfigurationOptions>()
-    .BindConfiguration("JwtSettings");
+    builder.Services.AddOptions<JwtConfigurationOptions>()
+        .BindConfiguration("JwtSettings");
 
-builder.Services.AddJwtAuthentication(builder.Configuration);
-builder.Services.AddAuthorization();
+    builder.Services.AddJwtAuthentication(builder.Configuration);
+    builder.Services.AddAuthorization();
 
+    builder.Services.AddStackExchangeRedisCache(options =>
+    {
+        options.Configuration = builder.Configuration.GetConnectionString("Redis");
+    });
+    builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
+        ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("Redis")!));
+    builder.Services.AddScoped<IAvailabilityCacheService, RedisAvailabilityCacheService>();
 
-var redisConnectionString = builder.Configuration.GetConnectionString("Redis")!;
+    builder.Services.AddScoped<IAuthService, AuthService>();
+    builder.Services.AddScoped<IRoleService, RoleService>();
+    builder.Services.AddScoped<IRoomService, RoomService>();
+    builder.Services.AddScoped<IBookingService, BookingService>();
 
-builder.Services.AddStackExchangeRedisCache(options =>
-{
-    options.Configuration = $"{redisConnectionString},abortConnect=false";
-});
+    builder.Services.AddHealthChecks()
+            .AddDbContextCheck<AppDbContext>()
+            .AddRedis(builder.Configuration.GetConnectionString("Redis")!);
 
-builder.Services.AddScoped<IAvailabilityCacheService, RedisAvailabilityCacheService>();
+    var app = builder.Build();
 
-builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IRoleService, RoleService>();
-builder.Services.AddScoped<IRoomService, RoomService>();
-builder.Services.AddScoped<IBookingService, BookingService>();
+    if (app.Environment.IsDevelopment())
+    {
+        app.UseSwagger();
+        app.UseSwaggerUI();
+    }
 
-var app = builder.Build();
+    app.UseHttpsRedirection();
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseAuthentication();
+    app.UseAuthorization();
+
+    app.MapControllers();
+
+    app.MapHealthChecks("/health");
+
+    app.Run();
 }
-
-app.UseHttpsRedirection();
-
-app.UseAuthentication();
-app.UseAuthorization();
-
-app.MapControllers();
-
-app.Run();
+catch (Exception ex)
+{
+    Log.Fatal(ex, "The application quit unexpectedly.");
+}
+finally
+{
+    Log.CloseAndFlush();
+}

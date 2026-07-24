@@ -4,7 +4,6 @@ using RoomBooking.API.Controllers.Base;
 using RoomBooking.Application.Abstractions.Services;
 using RoomBooking.Application.Common;
 using RoomBooking.Application.DTOs.Booking;
-using RoomBooking.Domain.Entities;
 using RoomBooking.Domain.Enums;
 using System.Security.Claims;
 

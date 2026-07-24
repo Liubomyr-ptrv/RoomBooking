@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using RoomBooking.Application.Abstractions.Services;
@@ -18,14 +19,17 @@ namespace RoomBooking.Application.Services
         private readonly UserManager<User> _userManager;
         private readonly SignInManager<User> _signInManager;
         private readonly IOptions<JwtConfigurationOptions> _jwtConfigOptions;
+        private readonly ILogger<AuthService> _logger;
         public AuthService(
             UserManager<User> userManager,
             SignInManager<User> signInManager,
-            IOptions<JwtConfigurationOptions> jwtConfigOptions)
+            IOptions<JwtConfigurationOptions> jwtConfigOptions,
+            ILogger<AuthService> logger)
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _jwtConfigOptions = jwtConfigOptions;
+            _logger = logger;
         }
         public async Task<Result<string>> LoginAsync(LoginModel dto)
         {
@@ -43,6 +47,8 @@ namespace RoomBooking.Application.Services
                 return Result<string>.Failure("Невірний email або пароль.", ErrorType.Validation);
 
             var token = await GenerateJwtTokenAsync(existing);
+
+            _logger.LogInformation("User {Email} (Id: {UserId}) has successfully logged into the system.", existing.Email, existing.Id);
 
             return Result<string>.Success(token);
         }
@@ -76,6 +82,8 @@ namespace RoomBooking.Application.Services
             }
 
             var token = await GenerateJwtTokenAsync(user);
+
+            _logger.LogInformation("New user {Email} (Id: {UserId}) has been successfully registered.", user.Email, user.Id);
 
             return Result<string>.Success(token);
         }  
