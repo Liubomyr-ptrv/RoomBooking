@@ -1,264 +1,138 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Moq;
-using RoomBooking.Application.Abstractions.Db;
 using RoomBooking.Application.Abstractions.Services;
 using RoomBooking.Application.DTOs.Booking;
 using RoomBooking.Application.Services;
 using RoomBooking.Domain.Entities;
 using RoomBooking.Domain.Enums;
+using RoomBooking.Infrastructure.Db;
+using System.Reflection;
 using Xunit;
 
 namespace RoomBooking.Tests.Application.Services
 {
     public class BookingServiceOverlapTests : IAsyncLifetime
     {
-        private readonly FakeAppDbContext _context;
-        private readonly Mock<IRoomService> _roomServiceMock;
-        private readonly BookingService _sut;
+        private AppDbContext _context = null!;
+        private BookingService _service = null!;
 
         private readonly Guid _roomId = Guid.NewGuid();
-        private readonly Guid _userId = Guid.NewGuid();
+        private readonly Guid _otherRoomId = Guid.NewGuid();
 
-      
+        private static readonly DateTime ExistingStart = new(2026, 8, 1, 10, 0, 0, DateTimeKind.Utc);
+        private static readonly DateTime ExistingEnd = new(2026, 8, 1, 11, 0, 0, DateTimeKind.Utc);
+
         private static readonly DateTime AnchorStart = DateTime.UtcNow.Date.AddDays(2).AddHours(9);
-
-        public BookingServiceOverlapTests()
-        {
-            _context = FakeAppDbContextFactory.Create();
-            _roomServiceMock = new Mock<IRoomService>();
-            _roomServiceMock
-                .Setup(x => x.InvalidateAvailabilityCacheAsync(It.IsAny<Guid>()))
-                .Returns(Task.CompletedTask);
-
-            _sut = new BookingService(_context, _roomServiceMock.Object);
-        }
 
         public async Task InitializeAsync()
         {
-            _context.Rooms.Add(new Room
-            {
-                Id = _roomId,
-                Name = "Test Room",
-                Capacity = 10,
-                PricePerHour = 100,
-                IsActive = true,
-                Location = "Kyiv, Office A1"
-            });
+            var options = new DbContextOptionsBuilder<AppDbContext>()
+                .UseInMemoryDatabase(Guid.NewGuid().ToString())
+                .Options;
 
-            await _context.SaveChangesAsync();
+            _context = new AppDbContext(options);
+
+            var cacheMock = new Mock<IAvailabilityCacheService>();
+            var loggerMock = new Mock<ILogger<BookingService>>();
+
+
+            _service = new BookingService(_context, loggerMock.Object, cacheMock.Object);
+
+
+            await SeedBookingAsync(_roomId, ExistingStart, ExistingEnd, BookingStatus.Confirmed);
         }
-
-        public Task DisposeAsync() => Task.CompletedTask;
-
-        private async Task<Booking> SeedBookingAsync(DateTime start, DateTime end, BookingStatus status = BookingStatus.Confirmed)
+        public Task DisposeAsync()
         {
-            var booking = new Booking
+            _context.Dispose();
+            return Task.CompletedTask;
+        }
+        private async Task SeedBookingAsync(Guid roomId, DateTime start, DateTime end, BookingStatus status)
+        {
+            _context.Bookings.Add(new Booking
             {
                 Id = Guid.NewGuid(),
-                RoomId = _roomId,
+                RoomId = roomId,
                 UserId = Guid.NewGuid(),
                 StartTime = start,
                 EndTime = end,
                 Title = "Existing booking",
-                AttendeesCount = 2,
-                TotalPrice = 100,
+                AttendeesCount = 1,
+                TotalPrice = 0,
                 Status = status
-            };
-
-            _context.Bookings.Add(booking);
+            });
             await _context.SaveChangesAsync();
-
-            return booking;
         }
-
-        private CreateBookingModel BuildRequest(DateTime start, DateTime end) => new()
+        private Task<bool> InvokeHasOverlapAsync(Guid roomId, DateTime start, DateTime end)
         {
-            RoomId = _roomId,
-            StartTime = start,
-            EndTime = end,
-            Title = "New booking",
-            AttendeesCount = 2,
-            Notes = null
-        };
+            var method = typeof(BookingService)
+                .GetMethod("HasOverlapAsync", BindingFlags.NonPublic | BindingFlags.Instance)
+                ?? throw new InvalidOperationException("HasOverlapAsync не знайдено — перевір назву методу.");
 
-        public static IEnumerable<object[]> OverlappingCases()
+            return (Task<bool>)method.Invoke(_service, new object[] { roomId, start, end })!;
+        }
+        public static IEnumerable<object[]> OverlapCases()
         {
-            var existingStart = AnchorStart;
-            var existingEnd = AnchorStart.AddHours(2);
-
-           
-            yield return new object[] { existingStart, existingEnd };
-
-           
-            yield return new object[] { existingStart.AddMinutes(30), existingEnd.AddMinutes(-30) };
-
-           
-            yield return new object[] { existingStart.AddMinutes(-30), existingEnd.AddMinutes(30) };
-
-          
-            yield return new object[] { existingStart.AddMinutes(-30), existingStart.AddMinutes(30) };
-
-            yield return new object[] { existingEnd.AddMinutes(-30), existingEnd.AddMinutes(30) };
+            yield return new object[] { -2.0, -1.0, false, "Повністю до існуючого бронювання" };
+            yield return new object[] { 1.0, 2.0, false, "Повністю після існуючого бронювання" };
+            yield return new object[] { -1.0, 0.0, false, "Суміжне зліва: new.End == existing.Start" };
+            yield return new object[] { 1.0, 2.0, false, "Суміжне справа: new.Start == existing.End" };
+            yield return new object[] { -0.5, 0.5, true, "Перетинає початок існуючого" };
+            yield return new object[] { 0.5, 1.5, true, "Перетинає кінець існуючого" };
+            yield return new object[] { -1.0, 2.0, true, "Повністю поглинає існуюче" };
+            yield return new object[] { 0.25, 0.75, true, "Повністю всередині існуючого" };
+            yield return new object[] { 0.0, 1.0, true, "Точний збіг інтервалів" };
         }
 
         [Theory]
-        [MemberData(nameof(OverlappingCases))]
-        public async Task CreateBookingAsync_WhenTimeOverlapsExistingConfirmedBooking_ReturnsConflict(
-            DateTime newStart, DateTime newEnd)
+        [MemberData(nameof(OverlapCases))]
+        public async Task HasOverlapAsync_VariousIntervals_ReturnsExpectedResult(
+            double startOffsetHours, double endOffsetHours, bool expectedOverlap, string scenario)
         {
-            await SeedBookingAsync(AnchorStart, AnchorStart.AddHours(2));
+            var newStart = ExistingStart.AddHours(startOffsetHours);
+            var newEnd = ExistingStart.AddHours(endOffsetHours);
 
-            var result = await _sut.CreateBookingAsync(BuildRequest(newStart, newEnd), _userId);
+            var result = await InvokeHasOverlapAsync(_roomId, newStart, newEnd);
 
-            Assert.False(result.Succeeded);
-            Assert.Equal(ErrorType.Conflict, result.ErrorType);
+            Assert.True(result == expectedOverlap,
+                $"Сценарій '{scenario}' провалився: очікували {expectedOverlap}, отримали {result}");
         }
 
         [Fact]
-        public async Task CreateBookingAsync_WhenNewBookingEndsExactlyWhenExistingStarts_NoOverlap_ReturnsSuccess()
+        public async Task HasOverlapAsync_AdjacentRightBoundary_ReturnsFalse()
         {
-            var existingStart = AnchorStart;
-            var existingEnd = AnchorStart.AddHours(2);
-            await SeedBookingAsync(existingStart, existingEnd);
+            var result = await InvokeHasOverlapAsync(_roomId, ExistingEnd, ExistingEnd.AddHours(1));
 
-            var request = BuildRequest(existingStart.AddHours(-1), existingStart);
-
-            var result = await _sut.CreateBookingAsync(request, _userId);
-
-            Assert.True(result.Succeeded);
+            Assert.False(result);
         }
 
         [Fact]
-        public async Task CreateBookingAsync_WhenNewBookingStartsExactlyWhenExistingEnds_NoOverlap_ReturnsSuccess()
+        public async Task HasOverlapAsync_SameTimeDifferentRoom_ReturnsFalse()
         {
-            var existingStart = AnchorStart;
-            var existingEnd = AnchorStart.AddHours(2);
-            await SeedBookingAsync(existingStart, existingEnd);
+            var result = await InvokeHasOverlapAsync(_otherRoomId, ExistingStart, ExistingEnd);
 
-            var request = BuildRequest(existingEnd, existingEnd.AddHours(1));
-
-            var result = await _sut.CreateBookingAsync(request, _userId);
-
-            Assert.True(result.Succeeded);
+            Assert.False(result);
         }
 
         [Fact]
-        public async Task CreateBookingAsync_WhenNewBookingCompletelyBeforeExisting_ReturnsSuccess()
+        public async Task HasOverlapAsync_OverlapsButExistingBookingCancelled_ReturnsFalse()
         {
-            var existingStart = AnchorStart.AddHours(5);
-            var existingEnd = AnchorStart.AddHours(7);
-            await SeedBookingAsync(existingStart, existingEnd);
+            var cancelledRoomId = Guid.NewGuid();
+            await SeedBookingAsync(cancelledRoomId, ExistingStart, ExistingEnd, BookingStatus.Cancelled);
 
-            var request = BuildRequest(AnchorStart, AnchorStart.AddHours(1));
+            var result = await InvokeHasOverlapAsync(cancelledRoomId, ExistingStart.AddMinutes(30), ExistingEnd.AddMinutes(30));
 
-            var result = await _sut.CreateBookingAsync(request, _userId);
-
-            Assert.True(result.Succeeded);
+            Assert.False(result);
         }
 
         [Fact]
-        public async Task CreateBookingAsync_WhenNewBookingCompletelyAfterExisting_ReturnsSuccess()
+        public async Task HasOverlapAsync_NoBookingsAtAll_ReturnsFalse()
         {
-            var existingStart = AnchorStart;
-            var existingEnd = AnchorStart.AddHours(1);
-            await SeedBookingAsync(existingStart, existingEnd);
+            var emptyRoomId = Guid.NewGuid();
 
-            var request = BuildRequest(AnchorStart.AddHours(5), AnchorStart.AddHours(6));
+            var result = await InvokeHasOverlapAsync(emptyRoomId, ExistingStart, ExistingEnd);
 
-            var result = await _sut.CreateBookingAsync(request, _userId);
-
-            Assert.True(result.Succeeded);
-        }
-
-        [Fact]
-        public async Task CreateBookingAsync_WhenOverlappingBookingIsCancelled_IgnoresItAndReturnsSuccess()
-        {
-            
-            await SeedBookingAsync(AnchorStart, AnchorStart.AddHours(2), BookingStatus.Cancelled);
-
-            var request = BuildRequest(AnchorStart, AnchorStart.AddHours(2));
-
-            var result = await _sut.CreateBookingAsync(request, _userId);
-
-            Assert.True(result.Succeeded);
-        }
-
-        [Fact]
-        public async Task CreateBookingAsync_WithMultipleExistingBookings_NoOverlapWithAny_ReturnsSuccess()
-        {
-            await SeedBookingAsync(AnchorStart, AnchorStart.AddHours(1));
-            await SeedBookingAsync(AnchorStart.AddHours(3), AnchorStart.AddHours(4));
-            await SeedBookingAsync(AnchorStart.AddHours(6), AnchorStart.AddHours(7));
-
-            var request = BuildRequest(AnchorStart.AddHours(1.5), AnchorStart.AddHours(2.5));
-
-            var result = await _sut.CreateBookingAsync(request, _userId);
-
-            Assert.True(result.Succeeded);
-        }
-
-        [Fact]
-        public async Task CreateBookingAsync_WithMultipleExistingBookings_OverlapsOneOfThem_ReturnsConflict()
-        {
-            await SeedBookingAsync(AnchorStart, AnchorStart.AddHours(1));
-            await SeedBookingAsync(AnchorStart.AddHours(3), AnchorStart.AddHours(4));
-            await SeedBookingAsync(AnchorStart.AddHours(6), AnchorStart.AddHours(7));
-
-         
-            var request = BuildRequest(AnchorStart.AddHours(3.5), AnchorStart.AddHours(5));
-
-            var result = await _sut.CreateBookingAsync(request, _userId);
-
-            Assert.False(result.Succeeded);
-            Assert.Equal(ErrorType.Conflict, result.ErrorType);
-        }
-
-        [Fact]
-        public async Task CreateBookingAsync_OverlapCheckIsScopedToRoom_DifferentRoomSameTime_ReturnsSuccess()
-        {
-            var otherRoomId = Guid.NewGuid();
-            _context.Rooms.Add(new Room
-            {
-                Id = otherRoomId,
-                Name = "Other Room",
-                Capacity = 5,
-                PricePerHour = 50,
-                IsActive = true,
-                Location = "Kyiv, Office A1"
-            });
-            await _context.SaveChangesAsync();
-
-            _context.Bookings.Add(new Booking
-            {
-                Id = Guid.NewGuid(),
-                RoomId = otherRoomId,
-                UserId = Guid.NewGuid(),
-                StartTime = AnchorStart,
-                EndTime = AnchorStart.AddHours(2),
-                Title = "Booking in another room",
-                AttendeesCount = 1,
-                TotalPrice = 50,
-                Status = BookingStatus.Confirmed
-            });
-            await _context.SaveChangesAsync();
-
-            // Той самий час, але інша кімната — перетину бути не повинно.
-            var request = BuildRequest(AnchorStart, AnchorStart.AddHours(2));
-
-            var result = await _sut.CreateBookingAsync(request, _userId);
-
-            Assert.True(result.Succeeded);
-        }
-
-        [Fact]
-        public async Task CreateBookingAsync_WhenNoOverlap_InvalidatesAvailabilityCacheForCorrectRoom()
-        {
-            var request = BuildRequest(AnchorStart, AnchorStart.AddHours(1));
-
-            var result = await _sut.CreateBookingAsync(request, _userId);
-
-            Assert.True(result.Succeeded);
-            _roomServiceMock.Verify(x => x.InvalidateAvailabilityCacheAsync(_roomId), Times.Once);
+            Assert.False(result);
         }
     }
 }

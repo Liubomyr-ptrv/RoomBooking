@@ -16,10 +16,11 @@ namespace RoomBooking.Application.Services
         private readonly IAvailabilityCacheService _cacheService;
         private static readonly TimeSpan MaxBookingDuration = TimeSpan.FromDays(7);
         private readonly ILogger<BookingService> _logger;
-        public BookingService(IAppDbContext context, IRoomService roomService, ILogger<BookingService> logger)
+        public BookingService(IAppDbContext context, ILogger<BookingService> logger, IAvailabilityCacheService cacheService)
         {
             _context = context;
             _logger = logger;
+            _cacheService = cacheService;
         }
         public async Task<Result<BookingModel>> GetByIdAsync(Guid bookingId, Guid userId)
         {
