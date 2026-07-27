@@ -1,5 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
 using RoomBooking.Application.Abstractions.Db;
 using RoomBooking.Application.Abstractions.Services;
@@ -68,6 +67,7 @@ namespace RoomBooking.Application.Services
 
             if (allBookings is null)
             {
+                Console.WriteLine("klkljkljkljkl");
                 var room = await _context.Rooms.AsNoTracking().FirstOrDefaultAsync(x => x.Id == roomId && x.IsActive);
                 if (room is null)
                 {
